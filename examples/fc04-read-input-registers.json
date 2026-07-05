@@ -1,0 +1,18 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "fc04-read-input-registers",
+  "description": "FC04 read input registers — read addresses 0–1 (1234, 5678). Read-only area.",
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "input-register-reader",
+      "state": {
+        "inputRegisters": [
+          { "address": 0, "value": 1234 },
+          { "address": 1, "value": 5678 }
+        ]
+      }
+    }
+  ]
+}

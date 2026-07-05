@@ -1,0 +1,21 @@
+# Build output
+/bootstrap/bootstrap
+/release/*
+/docker.tar
+/modbus-simulator
+/bin/*
+
+# Scan results
+*.log
+
+# Editor settings
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Coverage reports
+coverage.*
+
+# Cursor settings
+.cursor/

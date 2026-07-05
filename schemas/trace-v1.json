@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://otfabric.dev/schemas/modbus-simulator/trace-v1.json",
+  "title": "modbus-simulator trace record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "ts", "seq", "unitId", "request", "response", "stateChanges", "durationMs"],
+  "properties": {
+    "schemaVersion": { "const": "modbus-simulator.trace.v1" },
+    "ts": { "type": "string" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "unitId": { "type": "integer", "minimum": 1, "maximum": 247 },
+    "conn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "transport": { "type": "string" },
+        "remote": { "type": "string" }
+      }
+    },
+    "request": { "$ref": "#/$defs/request" },
+    "response": { "$ref": "#/$defs/response" },
+    "stateChanges": { "type": "array", "items": { "$ref": "#/$defs/stateChange" } },
+    "matchedRule": { "type": "string" },
+    "raw": { "type": "string" },
+    "durationMs": { "type": "number", "minimum": 0 }
+  },
+  "$defs": {
+    "scalar": { "type": ["boolean", "integer"] },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fc", "name", "area"],
+      "properties": {
+        "fc": { "type": "integer" },
+        "name": { "type": "string" },
+        "area": { "enum": ["coils", "discreteInputs", "holdingRegisters", "inputRegisters", "identity"] },
+        "address": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "quantity": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "value": { "$ref": "#/$defs/scalar" },
+        "values": { "type": "array", "items": { "$ref": "#/$defs/scalar" } },
+        "meiType": { "type": "integer" },
+        "readDeviceIdCode": { "type": "integer" },
+        "objectId": { "type": "integer" }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok"],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "values": { "type": "array", "items": { "$ref": "#/$defs/scalar" } },
+        "exceptionCode": {
+          "enum": ["illegal_function", "illegal_data_address", "illegal_data_value", "slave_device_failure"]
+        },
+        "fault": { "enum": ["delay", "timeout", "connectionClose"] },
+        "identity": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vendorName", "productCode", "majorMinorRevision"],
+      "properties": {
+        "vendorName": { "type": "string" },
+        "productCode": { "type": "string" },
+        "majorMinorRevision": { "type": "string" },
+        "objects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "value"],
+            "properties": {
+              "id": { "type": "integer", "minimum": 0, "maximum": 255 },
+              "value": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "stateChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["area", "address", "before", "after"],
+      "properties": {
+        "area": { "enum": ["coils", "discreteInputs", "holdingRegisters", "inputRegisters"] },
+        "address": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "before": { "$ref": "#/$defs/scalar" },
+        "after": { "$ref": "#/$defs/scalar" }
+      }
+    }
+  }
+}

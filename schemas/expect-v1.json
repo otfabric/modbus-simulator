@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://otfabric.dev/schemas/modbus-simulator/expect-v1.json",
+  "title": "modbus-simulator expectation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "assertions"],
+  "properties": {
+    "schemaVersion": { "const": "modbus-simulator.expect.v1" },
+    "assertions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/assertion" }
+    }
+  },
+  "$defs": {
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["contains", "notContains", "count", "ordered", "exact"] },
+        "match": { "$ref": "#/$defs/matcher" },
+        "sequence": { "type": "array", "items": { "$ref": "#/$defs/matcher" } },
+        "equals": { "type": "integer", "minimum": 0 },
+        "atLeast": { "type": "integer", "minimum": 0 },
+        "atMost": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "matcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request": { "type": "object" },
+        "response": { "type": "object" },
+        "stateChange": { "type": "object" }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "fc03-read-holding-registers",
+  "description": "FC03 read holding registers — read addresses 100–102 (2301, 501, 42).",
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "holding-register-reader",
+      "state": {
+        "holdingRegisters": [
+          { "address": 100, "value": 2301, "writable": false },
+          { "address": 101, "value": 501, "writable": true },
+          { "address": 102, "value": 42, "writable": true }
+        ]
+      }
+    }
+  ]
+}

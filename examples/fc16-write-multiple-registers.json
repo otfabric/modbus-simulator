@@ -1,0 +1,19 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "fc16-write-multiple-registers",
+  "description": "FC16 write multiple holding registers — write addresses 10–12 (all writable).",
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "multi-register-writer",
+      "state": {
+        "holdingRegisters": [
+          { "address": 10, "value": 100, "writable": true },
+          { "address": 11, "value": 200, "writable": true },
+          { "address": 12, "value": 300, "writable": true }
+        ]
+      }
+    }
+  ]
+}

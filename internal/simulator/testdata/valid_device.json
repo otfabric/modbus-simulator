@@ -1,0 +1,37 @@
+{
+  "$schema": "https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "gateway-integration-test",
+  "defaults": { "unknownAddress": "exception", "stateMode": "persistent" },
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "inverter-a",
+      "identity": {
+        "vendorName": "OTFabric",
+        "productCode": "GWTEST",
+        "majorMinorRevision": "1.0.0",
+        "objects": [ { "id": 128, "value": "integration-test-device" } ]
+      },
+      "state": {
+        "coils": [ { "address": 0, "value": true, "writable": true } ],
+        "discreteInputs": [ { "address": 0, "value": false } ],
+        "holdingRegisters": [
+          { "address": 0, "value": 2301, "writable": false },
+          { "address": 1, "value": 501, "writable": true }
+        ],
+        "inputRegisters": [ { "address": 0, "value": 1234 } ]
+      },
+      "behavior": {
+        "unknownAddress": "exception",
+        "exceptions": [
+          {
+            "id": "hr-999-illegal",
+            "match": { "fc": 3, "area": "holdingRegisters", "address": 999 },
+            "exceptionCode": "illegal_data_address"
+          }
+        ]
+      }
+    }
+  ]
+}

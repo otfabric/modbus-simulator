@@ -1,0 +1,19 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "fc15-write-multiple-coils",
+  "description": "FC15 write multiple coils — write addresses 0–2 (all writable, mixed initial values).",
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "multi-coil-writer",
+      "state": {
+        "coils": [
+          { "address": 0, "value": false, "writable": true },
+          { "address": 1, "value": true, "writable": true },
+          { "address": 2, "value": false, "writable": true }
+        ]
+      }
+    }
+  ]
+}

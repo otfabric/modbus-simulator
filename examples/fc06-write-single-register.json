@@ -1,0 +1,17 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "fc06-write-single-register",
+  "description": "FC06 write single holding register — write address 1 (initially 501, writable).",
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "register-writer",
+      "state": {
+        "holdingRegisters": [
+          { "address": 1, "value": 501, "writable": true }
+        ]
+      }
+    }
+  ]
+}

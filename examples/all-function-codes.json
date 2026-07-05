@@ -1,0 +1,55 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "all-function-codes",
+  "description": "All supported v1 function codes on unit 1: FC01–06, FC15–16, and FC43/14.",
+  "defaults": {
+    "unknownAddress": "exception",
+    "stateMode": "persistent"
+  },
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "full-featured-device",
+      "identity": {
+        "vendorName": "OTFabric",
+        "productCode": "SIM-ALL",
+        "majorMinorRevision": "1.0.0",
+        "objects": [
+          { "id": 128, "value": "modbus-simulator all-FC example" }
+        ]
+      },
+      "state": {
+        "coils": [
+          { "address": 0, "value": true, "writable": true },
+          { "address": 1, "value": false, "writable": true },
+          { "address": 10, "value": false, "writable": true }
+        ],
+        "discreteInputs": [
+          { "address": 0, "value": false },
+          { "address": 1, "value": true }
+        ],
+        "holdingRegisters": [
+          { "address": 0, "value": 2301, "writable": false },
+          { "address": 1, "value": 501, "writable": true },
+          { "address": 10, "value": 100, "writable": true },
+          { "address": 11, "value": 200, "writable": true },
+          { "address": 12, "value": 300, "writable": true }
+        ],
+        "inputRegisters": [
+          { "address": 0, "value": 1234 },
+          { "address": 1, "value": 5678 }
+        ]
+      },
+      "behavior": {
+        "exceptions": [
+          {
+            "id": "hr-999-illegal",
+            "match": { "fc": 3, "area": "holdingRegisters", "address": 999 },
+            "exceptionCode": "illegal_data_address"
+          }
+        ]
+      }
+    }
+  ]
+}

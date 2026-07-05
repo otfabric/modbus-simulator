@@ -1,0 +1,21 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "fc43-device-identification",
+  "description": "FC43/14 read device identification — vendor, product, revision, and custom object 0x80.",
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "identified-device",
+      "identity": {
+        "vendorName": "OTFabric",
+        "productCode": "SIM-FC43",
+        "majorMinorRevision": "1.0.0",
+        "objects": [
+          { "id": 128, "value": "modbus-simulator fc43 example" }
+        ]
+      },
+      "state": {}
+    }
+  ]
+}

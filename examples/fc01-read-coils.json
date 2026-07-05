@@ -1,0 +1,19 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "fc01-read-coils",
+  "description": "FC01 read coils — read addresses 0–2 (true, false, true).",
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "coil-reader",
+      "state": {
+        "coils": [
+          { "address": 0, "value": true },
+          { "address": 1, "value": false },
+          { "address": 2, "value": true }
+        ]
+      }
+    }
+  ]
+}

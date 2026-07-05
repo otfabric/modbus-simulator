@@ -13,7 +13,7 @@ import (
 const exampleUnitID uint8 = 1
 
 type exampleCase struct {
-	fixture string
+	fixture  string
 	exercise func(t *testing.T, ctx context.Context, c *modbus.Client)
 }
 

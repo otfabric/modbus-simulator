@@ -2,33 +2,69 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json",
   "title": "modbus-simulator fixture v1",
+  "description": "Declarative description of the initial simulated Modbus world. Loaded once at simulator startup. Each device is served on a single TCP listener and routed by unitId.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "devices"],
   "properties": {
-    "$schema": { "type": "string" },
-    "schemaVersion": { "const": "modbus-simulator.fixture.v1" },
-    "name": { "type": "string" },
-    "description": { "type": "string" },
-    "metadata": { "type": "object" },
-    "defaults": { "$ref": "#/$defs/defaults" },
+    "$schema": {
+      "type": "string",
+      "description": "Advisory JSON Schema URI for editor validation. Never fetched by the CLI; validation uses the embedded schema selected by schemaVersion."
+    },
+    "schemaVersion": {
+      "const": "modbus-simulator.fixture.v1",
+      "description": "Fixture format version. Must be exactly modbus-simulator.fixture.v1."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable fixture name (optional)."
+    },
+    "description": {
+      "type": "string",
+      "description": "Free-text description of this fixture's purpose (optional)."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary key/value metadata. The only object that allows additional properties."
+    },
+    "defaults": {
+      "$ref": "#/$defs/defaults",
+      "description": "Default behavior for all devices. Per-device behavior overrides these values."
+    },
     "devices": {
       "type": "array",
       "minItems": 1,
+      "description": "One or more Modbus devices to simulate. Each device must have a unique unitId in range 1–247.",
       "items": { "$ref": "#/$defs/device" }
     }
   },
   "$defs": {
-    "unknownAddress": { "enum": ["exception", "zeroForReads"] },
-    "stateMode": { "enum": ["persistent", "resetOnConnection"] },
-    "area": {
-      "enum": ["coils", "discreteInputs", "holdingRegisters", "inputRegisters"]
+    "unknownAddress": {
+      "enum": ["exception", "zeroForReads"],
+      "description": "Policy for reads/writes to addresses not present in the fixture. exception: illegal_data_address for unknown reads and all unknown writes. zeroForReads: reads return 0/false; unknown writes still fail with illegal_data_address."
     },
-    "supportedFc": { "enum": [1, 2, 3, 4, 5, 6, 15, 16, 43] },
-    "address": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "stateMode": {
+      "enum": ["persistent", "resetOnConnection"],
+      "description": "Runtime state reset policy. persistent: state survives for the process lifetime. resetOnConnection: writable areas reset to fixture values when a new TCP client connects."
+    },
+    "area": {
+      "enum": ["coils", "discreteInputs", "holdingRegisters", "inputRegisters"],
+      "description": "Modbus memory area name used in exception/fault rule match fields."
+    },
+    "supportedFc": {
+      "enum": [1, 2, 3, 4, 5, 6, 15, 16, 43],
+      "description": "Supported Modbus function codes for rule matching: 1 read coils, 2 read discrete inputs, 3 read holding registers, 4 read input registers, 5 write single coil, 6 write single register, 15 write multiple coils, 16 write multiple registers, 43 read device identification."
+    },
+    "address": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "description": "Modbus address or register index (0–65535)."
+    },
     "defaults": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Top-level defaults applied to every device unless overridden in device.behavior.",
       "properties": {
         "unknownAddress": { "$ref": "#/$defs/unknownAddress" },
         "stateMode": { "$ref": "#/$defs/stateMode" }
@@ -37,26 +73,58 @@
     "device": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One simulated Modbus device identified by unitId on the shared TCP listener.",
       "required": ["unitId", "state"],
       "properties": {
-        "unitId": { "type": "integer", "minimum": 1, "maximum": 247 },
-        "name": { "type": "string" },
-        "metadata": { "type": "object" },
-        "identity": { "$ref": "#/$defs/identity" },
-        "state": { "$ref": "#/$defs/state" },
-        "behavior": { "$ref": "#/$defs/behavior" }
+        "unitId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 247,
+          "description": "Modbus unit identifier (1–247). Unit 0 (broadcast) is rejected."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable device label (optional)."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Arbitrary per-device metadata."
+        },
+        "identity": {
+          "$ref": "#/$defs/identity",
+          "description": "FC43/14 device identification objects. When absent, FC43 returns illegal_function."
+        },
+        "state": {
+          "$ref": "#/$defs/state",
+          "description": "Initial values for all four memory areas."
+        },
+        "behavior": {
+          "$ref": "#/$defs/behavior",
+          "description": "Per-device behavior overrides and optional exception/fault rules."
+        }
       }
     },
     "identity": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Device identification for FC43. Named fields map to standard objects 0x00 (vendor), 0x01 (product), 0x02 (revision).",
       "required": ["vendorName", "productCode", "majorMinorRevision"],
       "properties": {
-        "vendorName": { "type": "string" },
-        "productCode": { "type": "string" },
-        "majorMinorRevision": { "type": "string" },
+        "vendorName": {
+          "type": "string",
+          "description": "Vendor name (identity object 0x00)."
+        },
+        "productCode": {
+          "type": "string",
+          "description": "Product code (identity object 0x01)."
+        },
+        "majorMinorRevision": {
+          "type": "string",
+          "description": "Firmware revision string (identity object 0x02)."
+        },
         "objects": {
           "type": "array",
+          "description": "Additional identity objects (ids 0x80–0xFF). Ids 0x00–0x02 must not appear here.",
           "items": { "$ref": "#/$defs/identityObject" }
         }
       }
@@ -64,93 +132,173 @@
     "identityObject": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One vendor-specific FC43 identity object.",
       "required": ["id", "value"],
       "properties": {
-        "id": { "type": "integer", "minimum": 0, "maximum": 255 },
-        "value": { "type": "string" }
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "Object id (0–255). Reserved ids 0x00–0x02 are set by the named identity fields."
+        },
+        "value": {
+          "type": "string",
+          "description": "Object value as a string."
+        }
       }
     },
     "state": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Initial memory map. Omitted areas are empty.",
       "properties": {
-        "coils": { "type": "array", "items": { "$ref": "#/$defs/booleanPointWritable" } },
-        "discreteInputs": { "type": "array", "items": { "$ref": "#/$defs/booleanPointReadonly" } },
-        "holdingRegisters": { "type": "array", "items": { "$ref": "#/$defs/registerPointWritable" } },
-        "inputRegisters": { "type": "array", "items": { "$ref": "#/$defs/registerPointReadonly" } }
+        "coils": {
+          "type": "array",
+          "description": "Coils (FC01 read, FC05/FC15 write). Default writable: true.",
+          "items": { "$ref": "#/$defs/booleanPointWritable" }
+        },
+        "discreteInputs": {
+          "type": "array",
+          "description": "Discrete inputs (FC02 read-only).",
+          "items": { "$ref": "#/$defs/booleanPointReadonly" }
+        },
+        "holdingRegisters": {
+          "type": "array",
+          "description": "Holding registers (FC03 read, FC06/FC16 write). Default writable: true.",
+          "items": { "$ref": "#/$defs/registerPointWritable" }
+        },
+        "inputRegisters": {
+          "type": "array",
+          "description": "Input registers (FC04 read-only).",
+          "items": { "$ref": "#/$defs/registerPointReadonly" }
+        }
       }
     },
     "booleanPointWritable": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One coil point with optional writable flag.",
       "required": ["address", "value"],
       "properties": {
         "address": { "$ref": "#/$defs/address" },
-        "value": { "type": "boolean" },
-        "writable": { "type": "boolean" },
-        "name": { "type": "string" },
-        "description": { "type": "string" }
+        "value": {
+          "type": "boolean",
+          "description": "Initial coil value."
+        },
+        "writable": {
+          "type": "boolean",
+          "description": "Whether FC05/FC15 may write this address. Defaults to true when omitted."
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional point label for documentation."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional point description for documentation."
+        }
       }
     },
     "booleanPointReadonly": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One discrete input point (read-only; writable is forbidden by schema).",
       "required": ["address", "value"],
       "properties": {
         "address": { "$ref": "#/$defs/address" },
-        "value": { "type": "boolean" },
-        "name": { "type": "string" },
-        "description": { "type": "string" }
+        "value": {
+          "type": "boolean",
+          "description": "Initial discrete input value."
+        },
+        "name": { "type": "string", "description": "Optional point label." },
+        "description": { "type": "string", "description": "Optional point description." }
       }
     },
     "registerPointWritable": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One holding register with optional writable flag.",
       "required": ["address", "value"],
       "properties": {
         "address": { "$ref": "#/$defs/address" },
-        "value": { "type": "integer", "minimum": 0, "maximum": 65535 },
-        "writable": { "type": "boolean" },
-        "name": { "type": "string" },
-        "description": { "type": "string" }
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "Initial register value (0–65535)."
+        },
+        "writable": {
+          "type": "boolean",
+          "description": "Whether FC06/FC16 may write this address. Defaults to true when omitted."
+        },
+        "name": { "type": "string", "description": "Optional point label." },
+        "description": { "type": "string", "description": "Optional point description." }
       }
     },
     "registerPointReadonly": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One input register (read-only; writable is forbidden by schema).",
       "required": ["address", "value"],
       "properties": {
         "address": { "$ref": "#/$defs/address" },
-        "value": { "type": "integer", "minimum": 0, "maximum": 65535 },
-        "name": { "type": "string" },
-        "description": { "type": "string" }
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "Initial register value (0–65535)."
+        },
+        "name": { "type": "string", "description": "Optional point label." },
+        "description": { "type": "string", "description": "Optional point description." }
       }
     },
     "behavior": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Per-device runtime behavior. Overrides fixture.defaults. exceptions and faults are evaluated before built-in validation.",
       "properties": {
         "unknownAddress": { "$ref": "#/$defs/unknownAddress" },
         "stateMode": { "$ref": "#/$defs/stateMode" },
-        "exceptions": { "type": "array", "items": { "$ref": "#/$defs/exceptionRule" } },
-        "faults": { "type": "array", "items": { "$ref": "#/$defs/faultRule" } }
+        "exceptions": {
+          "type": "array",
+          "description": "Deterministic Modbus exception rules (first match wins).",
+          "items": { "$ref": "#/$defs/exceptionRule" }
+        },
+        "faults": {
+          "type": "array",
+          "description": "Transport/runtime fault rules (first match wins; lower priority than exceptions).",
+          "items": { "$ref": "#/$defs/faultRule" }
+        }
       }
     },
     "match": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Rule match criteria. All present fields must match. address and addressRange are mutually exclusive.",
       "not": { "required": ["address", "addressRange"] },
       "properties": {
         "fc": { "$ref": "#/$defs/supportedFc" },
         "area": { "$ref": "#/$defs/area" },
-        "address": { "$ref": "#/$defs/address" },
-        "addressRange": { "$ref": "#/$defs/addressRange" },
-        "quantity": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        "address": {
+          "$ref": "#/$defs/address",
+          "description": "Match when the request covers this address."
+        },
+        "addressRange": {
+          "$ref": "#/$defs/addressRange",
+          "description": "Match when any requested address falls in [start, end]."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Exact match on request quantity when present."
+        }
       }
     },
     "addressRange": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Inclusive address range for rule matching. Requires start <= end.",
       "required": ["start", "end"],
       "properties": {
         "start": { "$ref": "#/$defs/address" },
@@ -160,25 +308,55 @@
     "exceptionRule": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Return a Modbus exception when match succeeds. Recorded in trace matchedRule.",
       "required": ["match", "exceptionCode"],
       "properties": {
-        "id": { "type": "string" },
+        "id": {
+          "type": "string",
+          "description": "Optional rule id echoed as trace matchedRule. Defaults to exception[index] when omitted."
+        },
         "match": { "$ref": "#/$defs/match" },
         "exceptionCode": {
-          "enum": ["illegal_function", "illegal_data_address", "illegal_data_value", "slave_device_failure"]
+          "enum": ["illegal_function", "illegal_data_address", "illegal_data_value", "slave_device_failure"],
+          "description": "Modbus exception code to return."
         }
       }
     },
     "faultRule": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Simulate a transport fault when match succeeds. delay still completes with ok:true; timeout and connectionClose record ok:false.",
       "required": ["match", "fault"],
       "properties": {
-        "id": { "type": "string" },
+        "id": {
+          "type": "string",
+          "description": "Optional rule id echoed as trace matchedRule."
+        },
         "match": { "$ref": "#/$defs/match" },
-        "fault": { "enum": ["delay", "timeout", "connectionClose"] },
-        "delayMs": { "type": "integer", "minimum": 0 }
+        "fault": {
+          "enum": ["delay", "timeout", "connectionClose"],
+          "description": "delay: wait delayMs then serve normally. timeout/connectionClose: failure recorded in trace."
+        },
+        "delayMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wait time in milliseconds before the fault outcome (optional for connectionClose)."
+        }
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "schemaVersion": "modbus-simulator.fixture.v1",
+      "name": "minimal-device",
+      "devices": [
+        {
+          "unitId": 1,
+          "state": {
+            "holdingRegisters": [{ "address": 100, "value": 501, "writable": true }]
+          }
+        }
+      ]
+    }
+  ]
 }

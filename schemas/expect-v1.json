@@ -2,13 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://otfabric.dev/schemas/modbus-simulator/expect-v1.json",
   "title": "modbus-simulator expectation v1",
+  "description": "Trace assertion file for modbus-simulator assert-trace. Matching is subset (partial): only fields present in a matcher are compared. ts, durationMs, and raw are never matched.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "assertions"],
   "properties": {
-    "schemaVersion": { "const": "modbus-simulator.expect.v1" },
+    "schemaVersion": {
+      "const": "modbus-simulator.expect.v1",
+      "description": "Expectation format version. Must be exactly modbus-simulator.expect.v1."
+    },
     "assertions": {
       "type": "array",
+      "description": "Assertions evaluated in order. All must pass for exit code 0.",
       "items": { "$ref": "#/$defs/assertion" }
     }
   },
@@ -16,24 +21,79 @@
     "assertion": {
       "type": "object",
       "additionalProperties": false,
+      "description": "One assertion of a supported kind.",
       "required": ["kind"],
       "properties": {
-        "kind": { "enum": ["contains", "notContains", "count", "ordered", "exact"] },
-        "match": { "$ref": "#/$defs/matcher" },
-        "sequence": { "type": "array", "items": { "$ref": "#/$defs/matcher" } },
-        "equals": { "type": "integer", "minimum": 0 },
-        "atLeast": { "type": "integer", "minimum": 0 },
-        "atMost": { "type": "integer", "minimum": 0 }
+        "kind": {
+          "enum": ["contains", "notContains", "count", "ordered", "exact"],
+          "description": "contains/notContains: match presence. count: match count bounds. ordered: subsequence in relative order. exact: record count equals sequence length and positional subset match."
+        },
+        "match": {
+          "$ref": "#/$defs/matcher",
+          "description": "Subset matcher for contains, notContains, and count."
+        },
+        "sequence": {
+          "type": "array",
+          "description": "Ordered list of subset matchers for ordered and exact kinds.",
+          "items": { "$ref": "#/$defs/matcher" }
+        },
+        "equals": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "For count: require exactly this many matching records."
+        },
+        "atLeast": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "For count: require at least this many matching records."
+        },
+        "atMost": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "For count: require at most this many matching records."
+        }
       }
     },
     "matcher": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Subset matcher against one trace record. request/response match when every specified field equals the record. stateChange matches if any element of the record stateChanges array matches all specified fields.",
       "properties": {
-        "request": { "type": "object" },
-        "response": { "type": "object" },
-        "stateChange": { "type": "object" }
+        "request": {
+          "type": "object",
+          "description": "Partial request object to match (e.g. fc, area, address, quantity, value, values)."
+        },
+        "response": {
+          "type": "object",
+          "description": "Partial response object to match (e.g. ok, values, exceptionCode, fault)."
+        },
+        "stateChange": {
+          "type": "object",
+          "description": "Partial state change to match against any entry in the record stateChanges array (e.g. area, address, after)."
+        }
       }
     }
-  }
+  },
+  "examples": [
+    {
+      "schemaVersion": "modbus-simulator.expect.v1",
+      "assertions": [
+        {
+          "kind": "contains",
+          "match": {
+            "request": { "fc": 6, "area": "holdingRegisters", "address": 1 },
+            "response": { "ok": true },
+            "stateChange": { "area": "holdingRegisters", "address": 1, "after": 777 }
+          }
+        },
+        {
+          "kind": "ordered",
+          "sequence": [
+            { "request": { "fc": 6 } },
+            { "request": { "fc": 3, "address": 1 }, "response": { "ok": true, "values": [777] } }
+          ]
+        }
+      ]
+    }
+  ]
 }

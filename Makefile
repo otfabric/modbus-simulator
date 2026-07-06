@@ -1,4 +1,4 @@
-.PHONY: help all run test coverage cover compile lint lint-ci fmt vet build build-nocheck build-all release-all install clean check
+.PHONY: help all run test coverage cover compile lint lint-ci fmt vet build build-nocheck build-all release-all install clean check generate-codec-examples
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -122,3 +122,7 @@ clean: ## Clean the build artifacts
 	@rm -rf $(BIN_DIR)
 	@rm -f $(RELEASE_DIR)/*
 	@rm -f *.{json,csv,log,mcap} results/*.{json,csv,log,mcap}
+
+generate-codec-examples: ## Regenerate bundled codec example fixtures
+	@echo "Generating codec example fixtures"
+	@go run ./tools/generate-codec-examples

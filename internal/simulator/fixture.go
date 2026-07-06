@@ -12,7 +12,7 @@ import (
 	"os"
 )
 
-// FixtureSchemaVersion is the only schemaVersion accepted by fixture v1.
+// FixtureSchemaVersion is the schemaVersion identifier for fixtures.
 const FixtureSchemaVersion = "modbus-simulator.fixture.v1"
 
 // Modbus memory area names used throughout fixtures, traces and assertions.
@@ -104,9 +104,11 @@ type State struct {
 }
 
 // Point is one register or coil entry. Value is a bool for coils/discrete inputs
-// and a json.Number for register areas (decoded with UseNumber).
+// and a json.Number or typed JSON value for register areas (decoded with UseNumber).
+// Codec is set for codec-backed multi-register fields (go-modbus stable ID).
 type Point struct {
 	Address     uint16 `json:"address"`
+	Codec       string `json:"codec,omitempty"`
 	Value       any    `json:"value"`
 	Writable    *bool  `json:"writable,omitempty"`
 	Name        string `json:"name,omitempty"`

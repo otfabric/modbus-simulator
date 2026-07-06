@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json",
   "title": "modbus-simulator fixture v1",
-  "description": "Declarative description of the initial simulated Modbus world. Loaded once at simulator startup. Each device is served on a single TCP listener and routed by unitId.",
+  "description": "Declarative description of the initial simulated Modbus world. Loaded once at simulator startup. Register points may use raw uint16 values or go-modbus codec IDs with typed values. Each device is served on a single TCP listener and routed by unitId.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "devices"],
@@ -60,6 +60,15 @@
       "minimum": 0,
       "maximum": 65535,
       "description": "Modbus address or register index (0–65535)."
+    },
+    "codecId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "go-modbus codec stable ID (e.g. float32/layout:4321, ascii/registers:4, ip_addr). Must resolve via codec.RuntimeCodecByID at semantic validation."
+    },
+    "codecValue": {
+      "description": "Typed JSON value for a codec point. Exact type is validated semantically against the codec ValueKind.",
+      "type": ["number", "string", "array"]
     },
     "defaults": {
       "type": "object",
@@ -164,12 +173,12 @@
         },
         "holdingRegisters": {
           "type": "array",
-          "description": "Holding registers (FC03 read, FC06/FC16 write). Default writable: true.",
+          "description": "Holding registers (FC03 read, FC06/FC16 write). Each entry is a raw uint16 point or a codec-backed multi-register field.",
           "items": { "$ref": "#/$defs/registerPointWritable" }
         },
         "inputRegisters": {
           "type": "array",
-          "description": "Input registers (FC04 read-only).",
+          "description": "Input registers (FC04 read-only). Each entry is a raw uint16 point or a codec-backed multi-register field.",
           "items": { "$ref": "#/$defs/registerPointReadonly" }
         }
       }
@@ -214,11 +223,12 @@
         "description": { "type": "string", "description": "Optional point description." }
       }
     },
-    "registerPointWritable": {
+    "rawRegisterPoint": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One holding register with optional writable flag.",
+      "description": "One raw holding/input register (unsigned 16-bit, one register).",
       "required": ["address", "value"],
+      "not": { "required": ["codec"] },
       "properties": {
         "address": { "$ref": "#/$defs/address" },
         "value": {
@@ -229,28 +239,52 @@
         },
         "writable": {
           "type": "boolean",
-          "description": "Whether FC06/FC16 may write this address. Defaults to true when omitted."
+          "description": "Whether FC06/FC16 may write this address. Defaults to true when omitted. Only on holdingRegisters."
         },
         "name": { "type": "string", "description": "Optional point label." },
         "description": { "type": "string", "description": "Optional point description." }
       }
     },
-    "registerPointReadonly": {
+    "codecRegisterPoint": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One input register (read-only; writable is forbidden by schema).",
-      "required": ["address", "value"],
+      "description": "One codec-backed multi-register field. Register span is derived from the codec at load time.",
+      "required": ["address", "codec", "value"],
       "properties": {
         "address": { "$ref": "#/$defs/address" },
-        "value": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "description": "Initial register value (0–65535)."
+        "codec": { "$ref": "#/$defs/codecId" },
+        "value": { "$ref": "#/$defs/codecValue" },
+        "writable": {
+          "type": "boolean",
+          "description": "Whether FC06/FC16 may write all registers in the span. Defaults to true when omitted. Only on holdingRegisters."
         },
-        "name": { "type": "string", "description": "Optional point label." },
-        "description": { "type": "string", "description": "Optional point description." }
+        "name": { "type": "string", "description": "Optional field label (used in trace decoded overlay)." },
+        "description": { "type": "string", "description": "Optional field description." }
       }
+    },
+    "registerPointWritable": {
+      "oneOf": [
+        { "$ref": "#/$defs/rawRegisterPoint" },
+        { "$ref": "#/$defs/codecRegisterPoint" }
+      ],
+      "description": "One holding register point: raw uint16 or codec-backed field."
+    },
+    "registerPointReadonly": {
+      "oneOf": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/rawRegisterPoint" },
+            { "not": { "required": ["writable"] } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/codecRegisterPoint" },
+            { "not": { "required": ["writable"] } }
+          ]
+        }
+      ],
+      "description": "One input register point: raw uint16 or codec-backed field (read-only)."
     },
     "behavior": {
       "type": "object",
@@ -354,6 +388,23 @@
           "unitId": 1,
           "state": {
             "holdingRegisters": [{ "address": 100, "value": 501, "writable": true }]
+          }
+        }
+      ]
+    },
+    {
+      "schemaVersion": "modbus-simulator.fixture.v1",
+      "name": "codec-demo",
+      "devices": [
+        {
+          "unitId": 1,
+          "state": {
+            "holdingRegisters": [
+              { "address": 0, "value": 1 },
+              { "address": 10, "codec": "float32/layout:4321", "value": 230.5, "name": "voltage" },
+              { "address": 12, "codec": "ascii/registers:4", "value": "PUMP1", "name": "tag" },
+              { "address": 16, "codec": "ip_addr", "value": "192.168.1.10", "name": "device_ip" }
+            ]
           }
         }
       ]

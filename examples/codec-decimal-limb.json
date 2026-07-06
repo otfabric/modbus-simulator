@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "codec-decimal-limb",
+  "description": "One example per decimal_limb codec from modbus-simulator codecs list (12 entries).",
+  "devices": [
+    {
+      "unitId": 1,
+      "state": {
+        "holdingRegisters": [
+          {
+            "address": 0,
+            "codec": "int32_m10k/order:high_to_low",
+            "value": -123456,
+            "name": "int32_m10k_order_high_to_low"
+          },
+          {
+            "address": 2,
+            "codec": "int32_m10k/order:low_to_high",
+            "value": -123456,
+            "name": "int32_m10k_order_low_to_high"
+          },
+          {
+            "address": 4,
+            "codec": "int48_m10k/order:high_to_low",
+            "value": -9876543210,
+            "name": "int48_m10k_order_high_to_low"
+          },
+          {
+            "address": 7,
+            "codec": "int48_m10k/order:low_to_high",
+            "value": -9876543210,
+            "name": "int48_m10k_order_low_to_high"
+          },
+          {
+            "address": 10,
+            "codec": "int64_m10k/order:high_to_low",
+            "value": -9876543210,
+            "name": "int64_m10k_order_high_to_low"
+          },
+          {
+            "address": 14,
+            "codec": "int64_m10k/order:low_to_high",
+            "value": -9876543210,
+            "name": "int64_m10k_order_low_to_high"
+          },
+          {
+            "address": 18,
+            "codec": "uint32_m10k/order:high_to_low",
+            "value": 0,
+            "name": "uint32_m10k_order_high_to_low"
+          },
+          {
+            "address": 20,
+            "codec": "uint32_m10k/order:low_to_high",
+            "value": 0,
+            "name": "uint32_m10k_order_low_to_high"
+          },
+          {
+            "address": 22,
+            "codec": "uint48_m10k/order:high_to_low",
+            "value": 123456789012,
+            "name": "uint48_m10k_order_high_to_low"
+          },
+          {
+            "address": 25,
+            "codec": "uint48_m10k/order:low_to_high",
+            "value": 123456789012,
+            "name": "uint48_m10k_order_low_to_high"
+          },
+          {
+            "address": 28,
+            "codec": "uint64_m10k/order:high_to_low",
+            "value": 123456789012,
+            "name": "uint64_m10k_order_high_to_low"
+          },
+          {
+            "address": 32,
+            "codec": "uint64_m10k/order:low_to_high",
+            "value": 123456789012,
+            "name": "uint64_m10k_order_low_to_high"
+          }
+        ]
+      }
+    }
+  ]
+}

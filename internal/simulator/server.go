@@ -12,11 +12,12 @@ import (
 
 // RunOptions configures the fixture simulator server.
 type RunOptions struct {
-	FixturePath string
-	Listen      string
-	TracePath   string
-	MaxClients  uint
-	Debug       bool
+	FixturePath  string
+	Listen       string
+	TracePath    string
+	TraceDecoded bool
+	MaxClients   uint
+	Debug        bool
 }
 
 // ErrFixtureInvalid wraps a fixture validation failure so callers can map it to the
@@ -56,7 +57,7 @@ func Run(ctx context.Context, opts RunOptions, progress io.Writer) error {
 		writer = jw
 	}
 
-	handler := NewHandler(store, writer)
+	handler := NewHandler(store, writer, opts.TraceDecoded)
 
 	logger := modbus.NopLogger()
 	if opts.Debug {

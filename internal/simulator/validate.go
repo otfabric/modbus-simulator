@@ -1,6 +1,7 @@
 package simulator
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -25,6 +26,13 @@ func (e *ValidationError) Error() string {
 // the semantic rules that the schema cannot express, returning the decoded fixture on
 // success.
 func ValidateFixtureBytes(data []byte) (*Fixture, error) {
+	version, err := peekFixtureSchemaVersion(data)
+	if err != nil {
+		return nil, err
+	}
+	if version != FixtureSchemaVersion {
+		return nil, fmt.Errorf("unsupported schemaVersion %q (supported: %s)", version, FixtureSchemaVersion)
+	}
 	if err := validateBytesAgainstSchema(FixtureSchemaVersion, data); err != nil {
 		return nil, err
 	}
@@ -47,8 +55,21 @@ func ValidateFixtureFile(path string) (*Fixture, error) {
 	return ValidateFixtureBytes(data)
 }
 
+func peekFixtureSchemaVersion(data []byte) (string, error) {
+	var peek struct {
+		SchemaVersion string `json:"schemaVersion"`
+	}
+	if err := json.Unmarshal(data, &peek); err != nil {
+		return "", fmt.Errorf("decode fixture schemaVersion: %w", err)
+	}
+	if peek.SchemaVersion == "" {
+		return "", fmt.Errorf("schemaVersion is required")
+	}
+	return peek.SchemaVersion, nil
+}
+
 // validateFixtureSemantics enforces rules beyond the JSON Schema: unique unit IDs,
-// unique addresses per area, identity object-id rules, and addressRange ordering.
+// non-overlapping register spans, identity object-id rules, and codec checks.
 func validateFixtureSemantics(f *Fixture) error {
 	var problems []string
 
@@ -66,10 +87,22 @@ func validateFixtureSemantics(f *Fixture) error {
 			seenUnits[d.UnitID] = i
 		}
 
-		problems = append(problems, validateAreaAddresses(label, AreaCoils, d.State.Coils)...)
-		problems = append(problems, validateAreaAddresses(label, AreaDiscreteInputs, d.State.DiscreteInputs)...)
-		problems = append(problems, validateAreaAddresses(label, AreaHoldingRegisters, d.State.HoldingRegisters)...)
-		problems = append(problems, validateAreaAddresses(label, AreaInputRegisters, d.State.InputRegisters)...)
+		problems = append(problems, validateUniqueAddresses(label, AreaCoils, d.State.Coils)...)
+		problems = append(problems, validateUniqueAddresses(label, AreaDiscreteInputs, d.State.DiscreteInputs)...)
+		problems = append(problems, validateNonOverlappingSpans(label, AreaHoldingRegisters, d.State.HoldingRegisters)...)
+		problems = append(problems, validateNonOverlappingSpans(label, AreaInputRegisters, d.State.InputRegisters)...)
+
+		for _, area := range []struct {
+			name   string
+			points []Point
+		}{
+			{AreaHoldingRegisters, d.State.HoldingRegisters},
+			{AreaInputRegisters, d.State.InputRegisters},
+		} {
+			for _, p := range area.points {
+				problems = append(problems, validateCodecPoint(label, area.name, p)...)
+			}
+		}
 
 		if d.Identity != nil {
 			problems = append(problems, validateIdentity(label, d.Identity)...)
@@ -91,7 +124,13 @@ func validateFixtureSemantics(f *Fixture) error {
 	return nil
 }
 
-func validateAreaAddresses(deviceLabel, area string, points []Point) []string {
+type addressSpan struct {
+	start uint16
+	end   uint16
+	addr  uint16
+}
+
+func validateUniqueAddresses(deviceLabel, area string, points []Point) []string {
 	var problems []string
 	seen := map[uint16]struct{}{}
 	for _, p := range points {
@@ -102,6 +141,36 @@ func validateAreaAddresses(deviceLabel, area string, points []Point) []string {
 		seen[p.Address] = struct{}{}
 	}
 	return problems
+}
+
+func validateNonOverlappingSpans(deviceLabel, area string, points []Point) []string {
+	var problems []string
+	spans := make([]addressSpan, 0, len(points))
+	for _, p := range points {
+		width, err := pointRegisterWidth(p)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s %s address %d: %v", deviceLabel, area, p.Address, err))
+			continue
+		}
+		end := uint32(p.Address) + uint32(width) - 1
+		if end > MaxRegisterValue {
+			problems = append(problems, fmt.Sprintf("%s %s address %d: span extends past register 65535", deviceLabel, area, p.Address))
+			continue
+		}
+		spans = append(spans, addressSpan{start: p.Address, end: uint16(end), addr: p.Address})
+	}
+	for i := 0; i < len(spans); i++ {
+		for j := i + 1; j < len(spans); j++ {
+			if spansOverlap(spans[i], spans[j]) {
+				problems = append(problems, fmt.Sprintf("%s %s: overlapping address spans at %d and %d", deviceLabel, area, spans[i].addr, spans[j].addr))
+			}
+		}
+	}
+	return problems
+}
+
+func spansOverlap(a, b addressSpan) bool {
+	return a.start <= b.end && b.start <= a.end
 }
 
 func validateIdentity(deviceLabel string, id *Identity) []string {

@@ -49,6 +49,8 @@ type runtimeDevice struct {
 	holding  map[uint16]*regCell
 	input    map[uint16]uint16
 
+	registerFields []registerField
+
 	initCoils   map[uint16]boolCell
 	initHolding map[uint16]regCell
 }
@@ -93,18 +95,14 @@ func BuildStore(f *Fixture) (*Store, error) {
 			rd.discrete[p.Address] = b
 		}
 		for _, p := range d.State.HoldingRegisters {
-			v, err := pointReg(p)
-			if err != nil {
+			if err := rd.addRegisterPoints(AreaHoldingRegisters, p, true); err != nil {
 				return nil, fmt.Errorf("unit %d holdingRegisters address %d: %w", d.UnitID, p.Address, err)
 			}
-			rd.holding[p.Address] = &regCell{value: v, writable: writableOrDefault(p, true)}
 		}
 		for _, p := range d.State.InputRegisters {
-			v, err := pointReg(p)
-			if err != nil {
+			if err := rd.addRegisterPoints(AreaInputRegisters, p, false); err != nil {
 				return nil, fmt.Errorf("unit %d inputRegisters address %d: %w", d.UnitID, p.Address, err)
 			}
-			rd.input[p.Address] = v
 		}
 		rd.snapshot()
 		s.devices[d.UnitID] = rd
@@ -366,6 +364,104 @@ func (s *Store) WriteHolding(unit uint8, start uint16, values []uint16) ([]State
 		}
 	}
 	return changes, nil
+}
+
+func (rd *runtimeDevice) addRegisterPoints(area string, p Point, holdingArea bool) error {
+	regs, err := encodePointRegisters(p)
+	if err != nil {
+		return err
+	}
+	writable := writableOrDefault(p, true)
+	for i, v := range regs {
+		addr := p.Address + uint16(i)
+		if holdingArea {
+			rd.holding[addr] = &regCell{value: v, writable: writable}
+		} else {
+			rd.input[addr] = v
+		}
+	}
+	if p.Codec != "" {
+		rc, err := resolveCodec(p.Codec)
+		if err != nil {
+			return err
+		}
+		rd.registerFields = append(rd.registerFields, registerField{
+			area:         area,
+			startAddress: p.Address,
+			codecID:      p.Codec,
+			name:         p.Name,
+			description:  p.Description,
+			codec:        rc,
+		})
+	}
+	return nil
+}
+
+// DecodeFieldsFullyContained returns decoded codec fields fully contained in the
+// request window [start, start+quantity). Partial overlaps are omitted.
+func (s *Store) DecodeFieldsFullyContained(unit uint8, area string, start, quantity uint16) []DecodedField {
+	if quantity == 0 {
+		return nil
+	}
+	reqEnd := uint32(start) + uint32(quantity)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	rd, ok := s.device(unit)
+	if !ok {
+		return nil
+	}
+
+	var out []DecodedField
+	for _, f := range rd.registerFields {
+		if f.area != area {
+			continue
+		}
+		fieldEnd := uint32(f.startAddress) + uint32(f.registerCount())
+		if uint32(f.startAddress) < uint32(start) || fieldEnd > reqEnd {
+			continue
+		}
+		regs := make([]uint16, f.registerCount())
+		complete := true
+		for i := range regs {
+			addr := f.startAddress + uint16(i)
+			switch area {
+			case AreaHoldingRegisters:
+				c, ok := rd.holding[addr]
+				if !ok {
+					complete = false
+					break
+				}
+				regs[i] = c.value
+			case AreaInputRegisters:
+				v, ok := rd.input[addr]
+				if !ok {
+					complete = false
+					break
+				}
+				regs[i] = v
+			default:
+				complete = false
+			}
+		}
+		if !complete {
+			continue
+		}
+		entry := DecodedField{
+			Area:    area,
+			Address: f.startAddress,
+			Codec:   f.codecID,
+			Name:    f.name,
+		}
+		decoded, err := f.codec.DecodeRegistersAny(regs)
+		if err != nil {
+			entry.Error = err.Error()
+		} else {
+			entry.Value = valueForTrace(decoded, f.codec.ValueKind())
+		}
+		out = append(out, entry)
+	}
+	return out
 }
 
 func writableOrDefault(p Point, def bool) bool {

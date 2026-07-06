@@ -54,6 +54,11 @@
       "description": "State mutations from writes (empty array for reads, FC43, exceptions, and faults).",
       "items": { "$ref": "#/$defs/stateChange" }
     },
+    "decoded": {
+      "type": "array",
+      "description": "Optional typed codec decode overlay when run --trace-decoded is enabled and the fixture uses codec fields fully contained in the request window.",
+      "items": { "$ref": "#/$defs/decodedField" }
+    },
     "matchedRule": {
       "type": "string",
       "description": "Id of the exception/fault rule that fired, unknownAddress when that policy applied, or absent/null otherwise."
@@ -202,6 +207,39 @@
         "after": {
           "$ref": "#/$defs/scalar",
           "description": "Value after the write."
+        }
+      }
+    },
+    "decodedField": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One decoded codec field from a fixture register span.",
+      "required": ["area", "address", "codec"],
+      "properties": {
+        "area": {
+          "enum": ["coils", "discreteInputs", "holdingRegisters", "inputRegisters"],
+          "description": "Memory area of the decoded field."
+        },
+        "address": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "Start address of the codec field."
+        },
+        "codec": {
+          "type": "string",
+          "description": "go-modbus codec stable ID."
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional fixture field name."
+        },
+        "value": {
+          "description": "Decoded typed value when decode succeeded."
+        },
+        "error": {
+          "type": "string",
+          "description": "Decode error message when decode failed at trace time."
         }
       }
     }

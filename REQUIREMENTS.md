@@ -255,21 +255,44 @@ Coils / discrete inputs:
 { "address": 0, "value": true, "writable": true }
 ```
 
-Holding / input registers:
+Holding / input registers (raw uint16):
 
 ```json
 { "address": 100, "value": 2301, "writable": false, "name": "grid_voltage_l1", "description": "Voltage L1 in decivolts" }
 ```
 
+Holding / input registers (codec-backed):
+
+```json
+{
+  "address": 200,
+  "codec": "float32/layout:4321",
+  "value": 230.5,
+  "writable": true,
+  "name": "grid_voltage_l1"
+}
+```
+
 Validation rules:
 
-- `address`: integer `0–65535`; unique within its area.
-- `value`: boolean for `coils`/`discreteInputs`; integer `0–65535` for register areas.
+- `address`: integer `0–65535`. For raw register points: one register. For codec points:
+  span is derived from the codec `RegisterSpec().Count`; spans must not overlap within
+  an area.
+- `value`: boolean for `coils`/`discreteInputs`; integer `0–65535` for raw register
+  points; typed JSON for codec points (numbers, strings, byte arrays, RFC3339 times,
+  IP/MAC strings) matching the codec `ValueKind`.
+- `codec`: optional go-modbus stable ID on register points; must resolve via
+  `codec.RuntimeCodecByID`. Semantic validation encodes and round-trip decodes the value.
 - `writable`: boolean. **Allowed only on `coils` and `holdingRegisters`.** The schema
   rejects `writable` on `discreteInputs` and `inputRegisters`.
 - `name`, `description`: optional strings.
-- `datatype` and per-point `metadata` are reserved for a future schema version and are
-  not accepted in v1.
+- `datatype` and per-point `metadata` are reserved and not accepted.
+
+Codec discovery: `modbus-simulator codecs list` wraps `codec.AvailableCodecDescriptors()`.
+
+**Trace decode overlay (optional):** `modbus-simulator run --trace-decoded` adds an
+optional `decoded[]` array to trace records when codec fields are fully contained in
+the request window. Documented in [`schemas/trace-v1.json`](./schemas/trace-v1.json).
 
 ### Writable rules
 

@@ -30,7 +30,7 @@ func TestTrace_RecordsAreSchemaValidAndWellFormed(t *testing.T) {
 	require.NoError(t, err)
 	store, err := BuildStore(f)
 	require.NoError(t, err)
-	h := NewHandler(store, jw)
+	h := NewHandler(store, jw, false)
 	ctx := context.Background()
 
 	// read, write, read-back, fc43, configured exception

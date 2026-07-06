@@ -17,17 +17,19 @@ const conformityLevel = 0x83
 // interfaces, applying the fixed rule-evaluation order and (optionally) emitting a
 // trace record per served request.
 type Handler struct {
-	store     *Store
-	writer    TraceWriter
-	now       func() time.Time
-	transport string
-	seq       atomic.Uint64
-	seenConns sync.Map // tracks remote addrs that already triggered resetOnConnection
+	store        *Store
+	writer       TraceWriter
+	traceDecoded bool
+	now          func() time.Time
+	transport    string
+	seq          atomic.Uint64
+	seenConns    sync.Map // tracks remote addrs that already triggered resetOnConnection
 }
 
 // NewHandler builds a handler over store. writer may be nil (no trace).
-func NewHandler(store *Store, writer TraceWriter) *Handler {
-	return &Handler{store: store, writer: writer, now: time.Now, transport: "tcp"}
+// traceDecoded enables optional typed decode overlay on trace records.
+func NewHandler(store *Store, writer TraceWriter, traceDecoded bool) *Handler {
+	return &Handler{store: store, writer: writer, traceDecoded: traceDecoded, now: time.Now, transport: "tcp"}
 }
 
 // reqInfo is the transport-neutral description of one request.
@@ -405,7 +407,29 @@ func (h *Handler) emit(r reqInfo, res txResult, durationMs float64) {
 	if rec.StateChanges == nil {
 		rec.StateChanges = []StateChange{}
 	}
+	if h.traceDecoded && res.ok && !r.identity {
+		rec.Decoded = h.store.DecodeFieldsFullyContained(r.unit, r.area, r.address, decodeQuantity(r, res))
+	}
 	_ = h.writer.Write(rec)
+}
+
+func decodeQuantity(r reqInfo, res txResult) uint16 {
+	if r.isWrite {
+		if r.single {
+			return 1
+		}
+		if len(r.regValues) > 0 {
+			return uint16(len(r.regValues))
+		}
+		return 1
+	}
+	if r.quantity > 0 {
+		return r.quantity
+	}
+	if res.regs != nil {
+		return uint16(len(res.regs))
+	}
+	return 0
 }
 
 func buildTraceRequest(r reqInfo) TraceRequest {

@@ -32,9 +32,9 @@ func TestValidateFixture_Rejections(t *testing.T) {
 		wantSubstr string
 	}{
 		{
-			name:       "wrong schema version",
+			name:       "unsupported schema version",
 			json:       `{"schemaVersion":"modbus-simulator.fixture.v2","devices":[{"unitId":1,"state":{}}]}`,
-			wantSubstr: "schema validation failed",
+			wantSubstr: "unsupported schemaVersion",
 		},
 		{
 			name:       "unknown top-level field",
@@ -99,7 +99,7 @@ func TestValidateFixture_Rejections(t *testing.T) {
 		{
 			name:       "duplicate address in area",
 			json:       minimalFixture(`{"unitId":1,"state":{"holdingRegisters":[{"address":5,"value":1},{"address":5,"value":2}]}}`),
-			wantSubstr: "duplicate address 5",
+			wantSubstr: "overlapping address spans",
 		},
 		{
 			name:       "identity object id reserved",

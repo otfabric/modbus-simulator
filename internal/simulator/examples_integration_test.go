@@ -4,9 +4,11 @@ import (
 	"context"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"testing"
 
 	"github.com/otfabric/go-modbus"
+	"github.com/otfabric/go-modbus/codec"
 	"github.com/stretchr/testify/require"
 )
 
@@ -149,6 +151,68 @@ var exampleCases = []exampleCase{
 	},
 }
 
+var codecBundleFixtures = []string{
+	"codec-integers.json",
+	"codec-floats.json",
+	"codec-text.json",
+	"codec-bcd.json",
+	"codec-bytes.json",
+	"codec-decimal-limb.json",
+	"codec-datetime.json",
+	"codec-network.json",
+	"codec-hardware.json",
+}
+
+func init() {
+	for _, fixture := range codecBundleFixtures {
+		fixture := fixture
+		exampleCases = append(exampleCases, exampleCase{
+			fixture: fixture,
+			exercise: func(t *testing.T, ctx context.Context, c *modbus.Client) {
+				exerciseCodecBundle(t, ctx, c, exampleFixturePath(fixture))
+			},
+		})
+	}
+}
+
+func exerciseCodecBundle(t *testing.T, ctx context.Context, c *modbus.Client, path string) {
+	t.Helper()
+	fixt, err := ValidateFixtureFile(path)
+	require.NoError(t, err)
+	require.Len(t, fixt.Devices, 1)
+	d := fixt.Devices[0]
+	for _, p := range d.State.HoldingRegisters {
+		if p.Codec == "" {
+			continue
+		}
+		exerciseCodecPoint(t, ctx, c, AreaHoldingRegisters, p)
+	}
+	for _, p := range d.State.InputRegisters {
+		if p.Codec == "" {
+			continue
+		}
+		exerciseCodecPoint(t, ctx, c, AreaInputRegisters, p)
+	}
+}
+
+func exerciseCodecPoint(t *testing.T, ctx context.Context, c *modbus.Client, area string, p Point) {
+	t.Helper()
+	want, err := encodePointRegisters(p)
+	require.NoError(t, err)
+	var got []uint16
+	var errRead error
+	switch area {
+	case AreaHoldingRegisters:
+		got, errRead = c.ReadHoldingRegisters(ctx, exampleUnitID, p.Address, uint16(len(want)))
+	case AreaInputRegisters:
+		got, errRead = c.ReadInputRegisters(ctx, exampleUnitID, p.Address, uint16(len(want)))
+	default:
+		t.Fatalf("unknown area %q", area)
+	}
+	require.NoError(t, errRead)
+	require.Equal(t, want, got, "codec %s at address %d", p.Codec, p.Address)
+}
+
 func exampleFixturePath(name string) string {
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(file), "..", "..", "examples", name)
@@ -196,5 +260,43 @@ func TestExamples_AllFixturesHaveIntegrationCase(t *testing.T) {
 		name := filepath.Base(path)
 		_, ok := covered[name]
 		require.Truef(t, ok, "examples/%s has no integration test case; add it to exampleCases", name)
+	}
+}
+
+func TestExamples_AllCodecsHaveExample(t *testing.T) {
+	want := make(map[string]struct{})
+	for _, d := range codec.AvailableCodecDescriptors() {
+		want[d.ID] = struct{}{}
+	}
+
+	got := make(map[string]struct{})
+	matches, err := filepath.Glob(filepath.Join(examplesDir(), "codec-*.json"))
+	require.NoError(t, err)
+	require.NotEmpty(t, matches)
+
+	for _, path := range matches {
+		fixt, err := ValidateFixtureFile(path)
+		require.NoError(t, err)
+		for _, d := range fixt.Devices {
+			collectCodecIDs(d.State.HoldingRegisters, got)
+			collectCodecIDs(d.State.InputRegisters, got)
+		}
+	}
+
+	var missing []string
+	for id := range want {
+		if _, ok := got[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+	sort.Strings(missing)
+	require.Empty(t, missing, "missing codec examples: %v", missing)
+}
+
+func collectCodecIDs(points []Point, out map[string]struct{}) {
+	for _, p := range points {
+		if p.Codec != "" {
+			out[p.Codec] = struct{}{}
+		}
 	}
 }

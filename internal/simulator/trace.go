@@ -13,16 +13,27 @@ const TraceSchemaVersion = "modbus-simulator.trace.v1"
 
 // TraceRecord is one served-request transaction line in the JSONL trace.
 type TraceRecord struct {
-	SchemaVersion string        `json:"schemaVersion"`
-	TS            string        `json:"ts"`
-	Seq           uint64        `json:"seq"`
-	Conn          *TraceConn    `json:"conn,omitempty"`
-	UnitID        uint8         `json:"unitId"`
-	Request       TraceRequest  `json:"request"`
-	Response      TraceResponse `json:"response"`
-	StateChanges  []StateChange `json:"stateChanges"`
-	MatchedRule   string        `json:"matchedRule,omitempty"`
-	DurationMs    float64       `json:"durationMs"`
+	SchemaVersion string         `json:"schemaVersion"`
+	TS            string         `json:"ts"`
+	Seq           uint64         `json:"seq"`
+	Conn          *TraceConn     `json:"conn,omitempty"`
+	UnitID        uint8          `json:"unitId"`
+	Request       TraceRequest   `json:"request"`
+	Response      TraceResponse  `json:"response"`
+	StateChanges  []StateChange  `json:"stateChanges"`
+	Decoded       []DecodedField `json:"decoded,omitempty"`
+	MatchedRule   string         `json:"matchedRule,omitempty"`
+	DurationMs    float64        `json:"durationMs"`
+}
+
+// DecodedField is an optional typed decode overlay for codec-backed fixture fields.
+type DecodedField struct {
+	Area    string `json:"area"`
+	Address uint16 `json:"address"`
+	Codec   string `json:"codec"`
+	Name    string `json:"name,omitempty"`
+	Value   any    `json:"value,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 // TraceConn identifies the client connection.

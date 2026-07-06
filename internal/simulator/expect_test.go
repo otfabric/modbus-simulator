@@ -21,7 +21,7 @@ func genTrace(t *testing.T, fixtureJSON string, ops func(ctx context.Context, h 
 	require.NoError(t, err)
 	store, err := BuildStore(f)
 	require.NoError(t, err)
-	h := NewHandler(store, jw)
+	h := NewHandler(store, jw, false)
 	ops(context.Background(), h)
 	require.NoError(t, jw.Close())
 	return p

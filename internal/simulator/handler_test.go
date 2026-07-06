@@ -21,7 +21,7 @@ func buildHandler(t *testing.T, fixtureJSON string, w TraceWriter) *Handler {
 	require.NoError(t, err)
 	store, err := BuildStore(f)
 	require.NoError(t, err)
-	return NewHandler(store, w)
+	return NewHandler(store, w, false)
 }
 
 const persistFixture = `{

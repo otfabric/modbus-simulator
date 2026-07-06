@@ -6,7 +6,7 @@
 [![CI](https://github.com/otfabric/modbus-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/otfabric/modbus-simulator/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/otfabric/modbus-simulator?label=release)](https://github.com/otfabric/modbus-simulator/releases)
 
-Deterministic, stateful Modbus **TCP device simulator** for integration and end-to-end testing. Load a declarative JSON fixture, serve one or more Modbus devices from a single listener, optionally record a JSONL trace of every request, and assert traces in CI.
+Deterministic, stateful Modbus **TCP device simulator** for integration and end-to-end testing. Load a declarative JSON fixture (raw registers or [go-modbus](https://github.com/otfabric/go-modbus) codec fields with typed values), serve one or more Modbus devices from a single listener, optionally record a JSONL trace of every request, and assert traces in CI.
 
 Repository: [github.com/otfabric/modbus-simulator](https://github.com/otfabric/modbus-simulator)
 
@@ -14,21 +14,23 @@ See [REQUIREMENTS.md](./REQUIREMENTS.md) for the full specification.
 
 ## Table of contents
 
-- [Install](#install)
-- [Quick start](#quick-start)
-- [Commands](#commands)
-  - [Global flags](#global-flags)
-  - [`validate`](#validate)
-  - [`run`](#run)
-  - [`assert-trace`](#assert-trace)
-  - [`version`](#version)
-  - [`completion`](#completion)
-  - [Exit codes](#exit-codes)
-- [Artifacts](#artifacts)
-- [Supported function codes (v1)](#supported-function-codes-v1)
-- [Examples](#examples)
-- [Development](#development)
-- [License](#license)
+- 📦 [Install](#install)
+- 🚀 [Quick start](#quick-start)
+- ⌨️ [Commands](#commands)
+  - 🌐 [Global flags](#global-flags)
+  - ✅ [`validate`](#validate)
+  - ▶️ [`run`](#run)
+  - 🔢 [`codecs list`](#codecs-list)
+  - 🔍 [`assert-trace`](#assert-trace)
+  - ℹ️ [`version`](#version)
+  - 🐚 [`completion`](#completion)
+  - 🚦 [Exit codes](#exit-codes)
+- 📄 [Artifacts](#artifacts)
+- 🧩 [Codec register fields](#codec-register-fields)
+- 📡 [Supported function codes (v1)](#supported-function-codes-v1)
+- 📚 [Examples](#examples)
+- 🛠️ [Development](#development)
+- 📜 [License](#license)
 
 ## Install
 
@@ -60,7 +62,7 @@ While the simulator runs, point your Modbus client or gateway at `tcp://127.0.0.
 
 For trace recording and CI assertions, add `--trace trace.jsonl`, generate traffic, stop the server (Ctrl+C), then run `assert-trace` with an expectation file — see [`assert-trace`](#assert-trace) and [Artifacts](#artifacts).
 
-Per–function-code fixtures are in [Examples](#examples). Command details and flags are in [Commands](#commands) below.
+Per–function-code and codec fixtures are in [Examples](#examples). Command details and flags are in [Commands](#commands) below.
 
 ## Commands
 
@@ -69,6 +71,7 @@ modbus-simulator [--debug]
 ├── validate <fixture.json>
 ├── run
 ├── assert-trace <trace.jsonl>
+├── codecs list
 ├── version
 └── completion [bash|zsh|fish|powershell]
 ```
@@ -110,6 +113,7 @@ Start the stateful Modbus TCP simulator from a fixture. Runs until interrupted (
 | `--fixture` | `MODBUS_SIMULATOR_FIXTURE` | *(required)* | Path to fixture JSON |
 | `--listen` | `MODBUS_SIMULATOR_LISTEN` | `:5020` | TCP listen address (`host:port`) |
 | `--trace` | `MODBUS_SIMULATOR_TRACE` | *(none)* | JSONL trace output path |
+| `--trace-decoded` | `MODBUS_SIMULATOR_TRACE_DECODED` | `false` | Include typed codec decode overlay in trace records |
 | `--max-clients` | `MODBUS_SIMULATOR_MAX_CLIENTS` | `0` (unlimited) | Max concurrent clients |
 
 #### Examples
@@ -121,8 +125,29 @@ modbus-simulator run --fixture device.json
 # Custom listen address and trace output
 modbus-simulator run --fixture device.json --listen :1502 --trace trace.jsonl
 
+# Trace with typed codec decode overlay
+modbus-simulator run --fixture examples/codec-floats.json --trace trace.jsonl --trace-decoded
+
 # Environment variables instead of flags
 MODBUS_SIMULATOR_FIXTURE=device.json MODBUS_SIMULATOR_LISTEN=:5020 modbus-simulator run
+```
+
+### `codecs list`
+
+List [go-modbus](https://github.com/otfabric/go-modbus) codec stable IDs and metadata. Use these IDs in fixture `codec` fields.
+
+#### Flags
+
+| Flag | Environment variable | Default | Description |
+|------|---------------------|---------|-------------|
+| `--family` | *(none)* | *(none)* | Filter by family: `integer`, `float`, `text`, `bcd`, `bytes`, `network`, `hardware_address`, `decimal_limb`, `time`, … |
+| `--format` | `MODBUS_SIMULATOR_FORMAT` | `text` | Output format: `text` or `json` |
+
+#### Examples
+
+```bash
+modbus-simulator codecs list
+modbus-simulator codecs list --family float --format json
 ```
 
 ### `assert-trace`
@@ -207,16 +232,48 @@ Three JSON artifacts drive the workflow:
 
 ```
 schemas/
-├── fixture-v1.json    # device state, identity, behavior rules
+├── fixture-v1.json    # device state, identity, behavior (raw + codec register points)
 ├── trace-v1.json      # one JSON object per served request (JSONL)
 └── expect-v1.json     # trace assertions (contains, count, ordered, exact, …)
 ```
 
-- **Fixture** — declarative initial Modbus world; loaded once at startup.
+- **Fixture** — declarative initial Modbus world; raw uint16/bool points or codec-backed
+  multi-register fields with typed values. Semantic validation uses the go-modbus codec
+  registry (see `validate` and `codecs list`).
 - **Trace** — append-only execution log; optional output from `run --trace`.
 - **Expectation** — subset matchers evaluated by `assert-trace`.
 
 Schemas are [embedded](./schemas/embed.go) in the binary so `validate` and `assert-trace` work offline. Set `"$schema"` in your JSON to the published `$id` or a relative path (e.g. `"schemas/fixture-v1.json"`) for editor validation; the CLI selects the schema from `schemaVersion`, not from `$schema`.
+
+## Codec register fields
+
+Register points in a fixture can use raw unsigned integers (`0–65535`, one register each) **or** a go-modbus **codec** with a typed JSON value. The simulator encodes codec values to wire registers at load time; FC handling stays register-native on the wire.
+
+**Raw point:**
+
+```json
+{ "address": 100, "value": 2301, "writable": false, "name": "raw_counter" }
+```
+
+**Codec point:**
+
+```json
+{
+  "address": 10,
+  "codec": "float32/layout:4321",
+  "value": 230.5,
+  "writable": true,
+  "name": "voltage"
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `codec` | Stable ID from [go-modbus/codec](https://github.com/otfabric/go-modbus/blob/main/CODECS.md) (e.g. `float32/layout:4321`, `ascii/registers:4`, `ip_addr`, `datetime2_s2000`) |
+| `value` | Typed JSON matching the codec (numbers, strings, byte arrays, RFC3339 times, IP/MAC strings) |
+| span | Derived from the codec register count — do not specify `count`; overlapping spans in one area are rejected |
+
+Discover IDs with `modbus-simulator codecs list`. Validation runs JSON Schema plus semantic encode/decode round-trip checks. Optional trace overlay: `run --trace-decoded` adds a `decoded[]` field when a read/write fully covers a codec field.
 
 ## Supported function codes (v1)
 
@@ -232,7 +289,9 @@ TCP only in v1 (RTU server deferred). All devices in a fixture share one TCP lis
 
 ## Examples
 
-Ready-to-run fixtures in [`examples/`](./examples/). Each fixture is exercised by a TCP integration test in `TestExamplesIntegration` (`make test`).
+Ready-to-run fixtures in [`examples/`](./examples/) — **19 total** (10 function-code, 9 codec bundles). Each file has a TCP integration test in `TestExamplesIntegration` (`make test`). Codec bundles are checked against `modbus-simulator codecs list` by `TestExamples_AllCodecsHaveExample` (195 IDs).
+
+**Function codes**
 
 | Fixture | FC | Try it |
 |---------|-----|--------|
@@ -247,16 +306,33 @@ Ready-to-run fixtures in [`examples/`](./examples/). Each fixture is exercised b
 | [fc43-device-identification.json](./examples/fc43-device-identification.json) | 43/14 — Device identification | `modbus-simulator run --fixture examples/fc43-device-identification.json` |
 | [all-function-codes.json](./examples/all-function-codes.json) | All of the above | `modbus-simulator run --fixture examples/all-function-codes.json` |
 
+**Codecs** — nine bundled fixtures cover every codec from `modbus-simulator codecs list` (195 IDs). Each file lists one example per family member with non-overlapping addresses.
+
+| Fixture | Family | Codecs | Try it |
+|---------|--------|--------|--------|
+| [codec-integers.json](./examples/codec-integers.json) | integer | 29 | `modbus-simulator validate examples/codec-integers.json` |
+| [codec-floats.json](./examples/codec-floats.json) | float | 8 | `modbus-simulator validate examples/codec-floats.json` |
+| [codec-text.json](./examples/codec-text.json) | text | 60 | `modbus-simulator validate examples/codec-text.json` |
+| [codec-bcd.json](./examples/codec-bcd.json) | bcd | 48 | `modbus-simulator validate examples/codec-bcd.json` |
+| [codec-bytes.json](./examples/codec-bytes.json) | bytes | 26 | `modbus-simulator validate examples/codec-bytes.json` |
+| [codec-decimal-limb.json](./examples/codec-decimal-limb.json) | decimal_limb | 12 | `modbus-simulator validate examples/codec-decimal-limb.json` |
+| [codec-datetime.json](./examples/codec-datetime.json) | time | 8 | `modbus-simulator validate examples/codec-datetime.json` |
+| [codec-network.json](./examples/codec-network.json) | network | 2 | `modbus-simulator validate examples/codec-network.json` |
+| [codec-hardware.json](./examples/codec-hardware.json) | hardware_address | 2 | `modbus-simulator validate examples/codec-hardware.json` |
+
+Regenerate bundled examples after adding codecs: `make generate-codec-examples`
+
 Each fixture uses unit ID `1` on the default listen address `:5020`. The `description` field in every file summarizes the registers or coils to exercise.
 
 ## Development
 
 ```bash
-make help       # list targets
-make test       # unit + race tests
-make check      # fmt, lint, vet, test, coverage
-make build      # build bin/modbus-simulator
-make build-all  # cross-compile release binaries
+make help                      # list targets
+make test                      # unit + race tests (includes example fixtures)
+make check                     # fmt, lint, vet, test, coverage
+make build                     # build bin/modbus-simulator
+make build-all                 # cross-compile release binaries
+make generate-codec-examples   # regenerate bundled codec fixtures
 ```
 
 Shell completion setup is documented under [`completion`](#completion).

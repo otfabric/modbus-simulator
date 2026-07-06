@@ -69,7 +69,8 @@ for later assertions.
 
   validate      validate a fixture (JSON Schema + semantic checks)
   run           start the stateful Modbus TCP simulator from a fixture
-  assert-trace  assert a generated trace against expectations`,
+  assert-trace  assert a generated trace against expectations
+  codecs        list go-modbus codec IDs (for fixture codec fields)`,
 }
 
 func init() {
@@ -214,4 +215,17 @@ func envUint(key string, def uint) uint {
 		return def
 	}
 	return uint(n)
+}
+
+// envBool parses a boolean env var, returning def on unset/invalid.
+func envBool(key string, def bool) bool {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return def
+	}
+	return b
 }

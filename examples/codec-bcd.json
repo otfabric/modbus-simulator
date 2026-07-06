@@ -1,0 +1,302 @@
+{
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "codec-bcd",
+  "description": "One example per bcd codec from modbus-simulator codecs list (48 entries).",
+  "devices": [
+    {
+      "unitId": 1,
+      "state": {
+        "holdingRegisters": [
+          {
+            "address": 0,
+            "codec": "bcd/registers:1",
+            "value": "11",
+            "name": "bcd_registers_1"
+          },
+          {
+            "address": 1,
+            "codec": "bcd/registers:12",
+            "value": "111111111111111111111111",
+            "name": "bcd_registers_12"
+          },
+          {
+            "address": 13,
+            "codec": "bcd/registers:16",
+            "value": "11111111111111111111111111111111",
+            "name": "bcd_registers_16"
+          },
+          {
+            "address": 29,
+            "codec": "bcd/registers:2",
+            "value": "1111",
+            "name": "bcd_registers_2"
+          },
+          {
+            "address": 31,
+            "codec": "bcd/registers:20",
+            "value": "1111111111111111111111111111111111111111",
+            "name": "bcd_registers_20"
+          },
+          {
+            "address": 51,
+            "codec": "bcd/registers:3",
+            "value": "111111",
+            "name": "bcd_registers_3"
+          },
+          {
+            "address": 54,
+            "codec": "bcd/registers:32",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111",
+            "name": "bcd_registers_32"
+          },
+          {
+            "address": 86,
+            "codec": "bcd/registers:4",
+            "value": "11111111",
+            "name": "bcd_registers_4"
+          },
+          {
+            "address": 90,
+            "codec": "bcd/registers:48",
+            "value": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "bcd_registers_48"
+          },
+          {
+            "address": 138,
+            "codec": "bcd/registers:6",
+            "value": "111111111111",
+            "name": "bcd_registers_6"
+          },
+          {
+            "address": 144,
+            "codec": "bcd/registers:64",
+            "value": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "bcd_registers_64"
+          },
+          {
+            "address": 208,
+            "codec": "bcd/registers:8",
+            "value": "1111111111111111",
+            "name": "bcd_registers_8"
+          },
+          {
+            "address": 216,
+            "codec": "packed_bcd/registers:1",
+            "value": "1111",
+            "name": "packed_bcd_registers_1"
+          },
+          {
+            "address": 217,
+            "codec": "packed_bcd/registers:12",
+            "value": "111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_registers_12"
+          },
+          {
+            "address": 229,
+            "codec": "packed_bcd/registers:16",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_registers_16"
+          },
+          {
+            "address": 245,
+            "codec": "packed_bcd/registers:2",
+            "value": "11111111",
+            "name": "packed_bcd_registers_2"
+          },
+          {
+            "address": 247,
+            "codec": "packed_bcd/registers:20",
+            "value": "11111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_registers_20"
+          },
+          {
+            "address": 267,
+            "codec": "packed_bcd/registers:3",
+            "value": "111111111111",
+            "name": "packed_bcd_registers_3"
+          },
+          {
+            "address": 270,
+            "codec": "packed_bcd/registers:32",
+            "value": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_registers_32"
+          },
+          {
+            "address": 302,
+            "codec": "packed_bcd/registers:4",
+            "value": "1111111111111111",
+            "name": "packed_bcd_registers_4"
+          },
+          {
+            "address": 306,
+            "codec": "packed_bcd/registers:48",
+            "value": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_registers_48"
+          },
+          {
+            "address": 354,
+            "codec": "packed_bcd/registers:6",
+            "value": "111111111111111111111111",
+            "name": "packed_bcd_registers_6"
+          },
+          {
+            "address": 360,
+            "codec": "packed_bcd/registers:64",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_registers_64"
+          },
+          {
+            "address": 424,
+            "codec": "packed_bcd/registers:8",
+            "value": "11111111111111111111111111111111",
+            "name": "packed_bcd_registers_8"
+          },
+          {
+            "address": 432,
+            "codec": "packed_bcd_reverse/registers:1",
+            "value": "1111",
+            "name": "packed_bcd_reverse_registers_1"
+          },
+          {
+            "address": 433,
+            "codec": "packed_bcd_reverse/registers:12",
+            "value": "111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_reverse_registers_12"
+          },
+          {
+            "address": 445,
+            "codec": "packed_bcd_reverse/registers:16",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_reverse_registers_16"
+          },
+          {
+            "address": 461,
+            "codec": "packed_bcd_reverse/registers:2",
+            "value": "11111111",
+            "name": "packed_bcd_reverse_registers_2"
+          },
+          {
+            "address": 463,
+            "codec": "packed_bcd_reverse/registers:20",
+            "value": "11111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_reverse_registers_20"
+          },
+          {
+            "address": 483,
+            "codec": "packed_bcd_reverse/registers:3",
+            "value": "111111111111",
+            "name": "packed_bcd_reverse_registers_3"
+          },
+          {
+            "address": 486,
+            "codec": "packed_bcd_reverse/registers:32",
+            "value": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_reverse_registers_32"
+          },
+          {
+            "address": 518,
+            "codec": "packed_bcd_reverse/registers:4",
+            "value": "1111111111111111",
+            "name": "packed_bcd_reverse_registers_4"
+          },
+          {
+            "address": 522,
+            "codec": "packed_bcd_reverse/registers:48",
+            "value": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_reverse_registers_48"
+          },
+          {
+            "address": 570,
+            "codec": "packed_bcd_reverse/registers:6",
+            "value": "111111111111111111111111",
+            "name": "packed_bcd_reverse_registers_6"
+          },
+          {
+            "address": 576,
+            "codec": "packed_bcd_reverse/registers:64",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "packed_bcd_reverse_registers_64"
+          },
+          {
+            "address": 640,
+            "codec": "packed_bcd_reverse/registers:8",
+            "value": "11111111111111111111111111111111",
+            "name": "packed_bcd_reverse_registers_8"
+          },
+          {
+            "address": 648,
+            "codec": "signed_packed_bcd/registers:1",
+            "value": "1111",
+            "name": "signed_packed_bcd_registers_1"
+          },
+          {
+            "address": 649,
+            "codec": "signed_packed_bcd/registers:12",
+            "value": "111111111111111111111111111111111111111111111111",
+            "name": "signed_packed_bcd_registers_12"
+          },
+          {
+            "address": 661,
+            "codec": "signed_packed_bcd/registers:16",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111",
+            "name": "signed_packed_bcd_registers_16"
+          },
+          {
+            "address": 677,
+            "codec": "signed_packed_bcd/registers:2",
+            "value": "11111111",
+            "name": "signed_packed_bcd_registers_2"
+          },
+          {
+            "address": 679,
+            "codec": "signed_packed_bcd/registers:20",
+            "value": "11111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "signed_packed_bcd_registers_20"
+          },
+          {
+            "address": 699,
+            "codec": "signed_packed_bcd/registers:3",
+            "value": "111111111111",
+            "name": "signed_packed_bcd_registers_3"
+          },
+          {
+            "address": 702,
+            "codec": "signed_packed_bcd/registers:32",
+            "value": "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "signed_packed_bcd_registers_32"
+          },
+          {
+            "address": 734,
+            "codec": "signed_packed_bcd/registers:4",
+            "value": "1111111111111111",
+            "name": "signed_packed_bcd_registers_4"
+          },
+          {
+            "address": 738,
+            "codec": "signed_packed_bcd/registers:48",
+            "value": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "signed_packed_bcd_registers_48"
+          },
+          {
+            "address": 786,
+            "codec": "signed_packed_bcd/registers:6",
+            "value": "111111111111111111111111",
+            "name": "signed_packed_bcd_registers_6"
+          },
+          {
+            "address": 792,
+            "codec": "signed_packed_bcd/registers:64",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+            "name": "signed_packed_bcd_registers_64"
+          },
+          {
+            "address": 856,
+            "codec": "signed_packed_bcd/registers:8",
+            "value": "11111111111111111111111111111111",
+            "name": "signed_packed_bcd_registers_8"
+          }
+        ]
+      }
+    }
+  ]
+}

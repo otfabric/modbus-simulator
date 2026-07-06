@@ -1,0 +1,374 @@
+{
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "codec-text",
+  "description": "One example per text codec from modbus-simulator codecs list (60 entries).",
+  "devices": [
+    {
+      "unitId": 1,
+      "state": {
+        "holdingRegisters": [
+          {
+            "address": 0,
+            "codec": "ascii/registers:1",
+            "value": "AA",
+            "name": "ascii_registers_1"
+          },
+          {
+            "address": 1,
+            "codec": "ascii/registers:12",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_12"
+          },
+          {
+            "address": 13,
+            "codec": "ascii/registers:16",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_16"
+          },
+          {
+            "address": 29,
+            "codec": "ascii/registers:2",
+            "value": "AAAA",
+            "name": "ascii_registers_2"
+          },
+          {
+            "address": 31,
+            "codec": "ascii/registers:20",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_20"
+          },
+          {
+            "address": 51,
+            "codec": "ascii/registers:3",
+            "value": "AAAAAA",
+            "name": "ascii_registers_3"
+          },
+          {
+            "address": 54,
+            "codec": "ascii/registers:32",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_32"
+          },
+          {
+            "address": 86,
+            "codec": "ascii/registers:4",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_4"
+          },
+          {
+            "address": 90,
+            "codec": "ascii/registers:48",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_48"
+          },
+          {
+            "address": 138,
+            "codec": "ascii/registers:6",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_6"
+          },
+          {
+            "address": 144,
+            "codec": "ascii/registers:64",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_64"
+          },
+          {
+            "address": 208,
+            "codec": "ascii/registers:8",
+            "value": "AAAAAAAA",
+            "name": "ascii_registers_8"
+          },
+          {
+            "address": 216,
+            "codec": "ascii_fixed/registers:1",
+            "value": "AA",
+            "name": "ascii_fixed_registers_1"
+          },
+          {
+            "address": 217,
+            "codec": "ascii_fixed/registers:12",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_fixed_registers_12"
+          },
+          {
+            "address": 229,
+            "codec": "ascii_fixed/registers:16",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_fixed_registers_16"
+          },
+          {
+            "address": 245,
+            "codec": "ascii_fixed/registers:2",
+            "value": "AAAA",
+            "name": "ascii_fixed_registers_2"
+          },
+          {
+            "address": 247,
+            "codec": "ascii_fixed/registers:20",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_fixed_registers_20"
+          },
+          {
+            "address": 267,
+            "codec": "ascii_fixed/registers:3",
+            "value": "AAAAAA",
+            "name": "ascii_fixed_registers_3"
+          },
+          {
+            "address": 270,
+            "codec": "ascii_fixed/registers:32",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_fixed_registers_32"
+          },
+          {
+            "address": 302,
+            "codec": "ascii_fixed/registers:4",
+            "value": "AAAAAAAA",
+            "name": "ascii_fixed_registers_4"
+          },
+          {
+            "address": 306,
+            "codec": "ascii_fixed/registers:48",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_fixed_registers_48"
+          },
+          {
+            "address": 354,
+            "codec": "ascii_fixed/registers:6",
+            "value": "AAAAAAAAAAAA",
+            "name": "ascii_fixed_registers_6"
+          },
+          {
+            "address": 360,
+            "codec": "ascii_fixed/registers:64",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_fixed_registers_64"
+          },
+          {
+            "address": 424,
+            "codec": "ascii_fixed/registers:8",
+            "value": "AAAAAAAAAAAAAAAA",
+            "name": "ascii_fixed_registers_8"
+          },
+          {
+            "address": 432,
+            "codec": "ascii_reverse/registers:1",
+            "value": "AA",
+            "name": "ascii_reverse_registers_1"
+          },
+          {
+            "address": 433,
+            "codec": "ascii_reverse/registers:12",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_reverse_registers_12"
+          },
+          {
+            "address": 445,
+            "codec": "ascii_reverse/registers:16",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_reverse_registers_16"
+          },
+          {
+            "address": 461,
+            "codec": "ascii_reverse/registers:2",
+            "value": "AAAA",
+            "name": "ascii_reverse_registers_2"
+          },
+          {
+            "address": 463,
+            "codec": "ascii_reverse/registers:20",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_reverse_registers_20"
+          },
+          {
+            "address": 483,
+            "codec": "ascii_reverse/registers:3",
+            "value": "AAAAAA",
+            "name": "ascii_reverse_registers_3"
+          },
+          {
+            "address": 486,
+            "codec": "ascii_reverse/registers:32",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_reverse_registers_32"
+          },
+          {
+            "address": 518,
+            "codec": "ascii_reverse/registers:4",
+            "value": "AAAAAAAA",
+            "name": "ascii_reverse_registers_4"
+          },
+          {
+            "address": 522,
+            "codec": "ascii_reverse/registers:48",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_reverse_registers_48"
+          },
+          {
+            "address": 570,
+            "codec": "ascii_reverse/registers:6",
+            "value": "AAAAAAAAAAAA",
+            "name": "ascii_reverse_registers_6"
+          },
+          {
+            "address": 576,
+            "codec": "ascii_reverse/registers:64",
+            "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "name": "ascii_reverse_registers_64"
+          },
+          {
+            "address": 640,
+            "codec": "ascii_reverse/registers:8",
+            "value": "AAAAAAAAAAAAAAAA",
+            "name": "ascii_reverse_registers_8"
+          },
+          {
+            "address": 648,
+            "codec": "utf16be/registers:1",
+            "value": "A",
+            "name": "utf16be_registers_1"
+          },
+          {
+            "address": 649,
+            "codec": "utf16be/registers:12",
+            "value": "BBBBBBBBBBBB",
+            "name": "utf16be_registers_12"
+          },
+          {
+            "address": 661,
+            "codec": "utf16be/registers:16",
+            "value": "BBBBBBBBBBBBBBBB",
+            "name": "utf16be_registers_16"
+          },
+          {
+            "address": 677,
+            "codec": "utf16be/registers:2",
+            "value": "AA",
+            "name": "utf16be_registers_2"
+          },
+          {
+            "address": 679,
+            "codec": "utf16be/registers:20",
+            "value": "BBBBBBBBBBBBBBBBBBBB",
+            "name": "utf16be_registers_20"
+          },
+          {
+            "address": 699,
+            "codec": "utf16be/registers:3",
+            "value": "AAA",
+            "name": "utf16be_registers_3"
+          },
+          {
+            "address": 702,
+            "codec": "utf16be/registers:32",
+            "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "name": "utf16be_registers_32"
+          },
+          {
+            "address": 734,
+            "codec": "utf16be/registers:4",
+            "value": "AAAA",
+            "name": "utf16be_registers_4"
+          },
+          {
+            "address": 738,
+            "codec": "utf16be/registers:48",
+            "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "name": "utf16be_registers_48"
+          },
+          {
+            "address": 786,
+            "codec": "utf16be/registers:6",
+            "value": "BBBBBB",
+            "name": "utf16be_registers_6"
+          },
+          {
+            "address": 792,
+            "codec": "utf16be/registers:64",
+            "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "name": "utf16be_registers_64"
+          },
+          {
+            "address": 856,
+            "codec": "utf16be/registers:8",
+            "value": "BBBBBBBB",
+            "name": "utf16be_registers_8"
+          },
+          {
+            "address": 864,
+            "codec": "utf16le/registers:1",
+            "value": "A",
+            "name": "utf16le_registers_1"
+          },
+          {
+            "address": 865,
+            "codec": "utf16le/registers:12",
+            "value": "BBBBBBBBBBBB",
+            "name": "utf16le_registers_12"
+          },
+          {
+            "address": 877,
+            "codec": "utf16le/registers:16",
+            "value": "BBBBBBBBBBBBBBBB",
+            "name": "utf16le_registers_16"
+          },
+          {
+            "address": 893,
+            "codec": "utf16le/registers:2",
+            "value": "AA",
+            "name": "utf16le_registers_2"
+          },
+          {
+            "address": 895,
+            "codec": "utf16le/registers:20",
+            "value": "BBBBBBBBBBBBBBBBBBBB",
+            "name": "utf16le_registers_20"
+          },
+          {
+            "address": 915,
+            "codec": "utf16le/registers:3",
+            "value": "AAA",
+            "name": "utf16le_registers_3"
+          },
+          {
+            "address": 918,
+            "codec": "utf16le/registers:32",
+            "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "name": "utf16le_registers_32"
+          },
+          {
+            "address": 950,
+            "codec": "utf16le/registers:4",
+            "value": "AAAA",
+            "name": "utf16le_registers_4"
+          },
+          {
+            "address": 954,
+            "codec": "utf16le/registers:48",
+            "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "name": "utf16le_registers_48"
+          },
+          {
+            "address": 1002,
+            "codec": "utf16le/registers:6",
+            "value": "BBBBBB",
+            "name": "utf16le_registers_6"
+          },
+          {
+            "address": 1008,
+            "codec": "utf16le/registers:64",
+            "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "name": "utf16le_registers_64"
+          },
+          {
+            "address": 1072,
+            "codec": "utf16le/registers:8",
+            "value": "BBBBBBBB",
+            "name": "utf16le_registers_8"
+          }
+        ]
+      }
+    }
+  ]
+}

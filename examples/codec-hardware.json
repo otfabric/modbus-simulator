@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "codec-hardware",
+  "description": "One example per hardware_address codec from modbus-simulator codecs list (2 entries).",
+  "devices": [
+    {
+      "unitId": 1,
+      "state": {
+        "holdingRegisters": [
+          {
+            "address": 0,
+            "codec": "eui48",
+            "value": "00:1a:2b:3c:4d:5e",
+            "name": "eui48"
+          },
+          {
+            "address": 3,
+            "codec": "eui64",
+            "value": "00:1a:2b:3c:4d:5e:6f:70",
+            "name": "eui64"
+          }
+        ]
+      }
+    }
+  ]
+}

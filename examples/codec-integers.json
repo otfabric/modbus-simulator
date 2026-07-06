@@ -1,0 +1,188 @@
+{
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "codec-integers",
+  "description": "One example per integer codec from modbus-simulator codecs list (29 entries).",
+  "devices": [
+    {
+      "unitId": 1,
+      "state": {
+        "holdingRegisters": [
+          {
+            "address": 0,
+            "codec": "int16/layout:12",
+            "value": -1234,
+            "name": "int16_layout_12"
+          },
+          {
+            "address": 1,
+            "codec": "int16/layout:21",
+            "value": -1234,
+            "name": "int16_layout_21"
+          },
+          {
+            "address": 2,
+            "codec": "int16_sign_magnitude",
+            "value": -1234,
+            "name": "int16_sign_magnitude"
+          },
+          {
+            "address": 3,
+            "codec": "int32/layout:1234",
+            "value": -123456,
+            "name": "int32_layout_1234"
+          },
+          {
+            "address": 5,
+            "codec": "int32/layout:2143",
+            "value": -123456,
+            "name": "int32_layout_2143"
+          },
+          {
+            "address": 7,
+            "codec": "int32/layout:3412",
+            "value": -123456,
+            "name": "int32_layout_3412"
+          },
+          {
+            "address": 9,
+            "codec": "int32/layout:4321",
+            "value": -123456,
+            "name": "int32_layout_4321"
+          },
+          {
+            "address": 11,
+            "codec": "int48/layout:123456",
+            "value": -9876543210,
+            "name": "int48_layout_123456"
+          },
+          {
+            "address": 14,
+            "codec": "int48/layout:214365",
+            "value": -9876543210,
+            "name": "int48_layout_214365"
+          },
+          {
+            "address": 17,
+            "codec": "int48/layout:563412",
+            "value": -9876543210,
+            "name": "int48_layout_563412"
+          },
+          {
+            "address": 20,
+            "codec": "int48/layout:654321",
+            "value": -9876543210,
+            "name": "int48_layout_654321"
+          },
+          {
+            "address": 23,
+            "codec": "int64/layout:12345678",
+            "value": -9876543210,
+            "name": "int64_layout_12345678"
+          },
+          {
+            "address": 27,
+            "codec": "int64/layout:21436587",
+            "value": -9876543210,
+            "name": "int64_layout_21436587"
+          },
+          {
+            "address": 31,
+            "codec": "int64/layout:78563412",
+            "value": -9876543210,
+            "name": "int64_layout_78563412"
+          },
+          {
+            "address": 35,
+            "codec": "int64/layout:87654321",
+            "value": -9876543210,
+            "name": "int64_layout_87654321"
+          },
+          {
+            "address": 39,
+            "codec": "uint16/layout:12",
+            "value": 1234,
+            "name": "uint16_layout_12"
+          },
+          {
+            "address": 40,
+            "codec": "uint16/layout:21",
+            "value": 1234,
+            "name": "uint16_layout_21"
+          },
+          {
+            "address": 41,
+            "codec": "uint32/layout:1234",
+            "value": 1234567890,
+            "name": "uint32_layout_1234"
+          },
+          {
+            "address": 43,
+            "codec": "uint32/layout:2143",
+            "value": 1234567890,
+            "name": "uint32_layout_2143"
+          },
+          {
+            "address": 45,
+            "codec": "uint32/layout:3412",
+            "value": 1234567890,
+            "name": "uint32_layout_3412"
+          },
+          {
+            "address": 47,
+            "codec": "uint32/layout:4321",
+            "value": 1234567890,
+            "name": "uint32_layout_4321"
+          },
+          {
+            "address": 49,
+            "codec": "uint48/layout:123456",
+            "value": 123456789012,
+            "name": "uint48_layout_123456"
+          },
+          {
+            "address": 52,
+            "codec": "uint48/layout:214365",
+            "value": 123456789012,
+            "name": "uint48_layout_214365"
+          },
+          {
+            "address": 55,
+            "codec": "uint48/layout:563412",
+            "value": 123456789012,
+            "name": "uint48_layout_563412"
+          },
+          {
+            "address": 58,
+            "codec": "uint48/layout:654321",
+            "value": 123456789012,
+            "name": "uint48_layout_654321"
+          },
+          {
+            "address": 61,
+            "codec": "uint64/layout:12345678",
+            "value": 123456789012,
+            "name": "uint64_layout_12345678"
+          },
+          {
+            "address": 65,
+            "codec": "uint64/layout:21436587",
+            "value": 123456789012,
+            "name": "uint64_layout_21436587"
+          },
+          {
+            "address": 69,
+            "codec": "uint64/layout:78563412",
+            "value": 123456789012,
+            "name": "uint64_layout_78563412"
+          },
+          {
+            "address": 73,
+            "codec": "uint64/layout:87654321",
+            "value": 123456789012,
+            "name": "uint64_layout_87654321"
+          }
+        ]
+      }
+    }
+  ]
+}

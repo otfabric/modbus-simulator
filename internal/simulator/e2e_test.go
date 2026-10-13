@@ -124,3 +124,44 @@ func TestE2E_SimulatorServeTraceAndAssert(t *testing.T) {
 	require.Truef(t, report.Passed, "assertions failed: %+v", report.Results)
 	require.GreaterOrEqual(t, report.Records, 4)
 }
+
+func TestE2E_ResetOnConnectionAndLiveTrace(t *testing.T) {
+	dir := t.TempDir()
+	fixturePath := filepath.Join(dir, "device.json")
+	tracePath := filepath.Join(dir, "trace.jsonl")
+	require.NoError(t, os.WriteFile(fixturePath, []byte(`{
+      "schemaVersion":"modbus-simulator.fixture.v1",
+      "defaults":{"stateMode":"resetOnConnection"},
+      "devices":[{"unitId":1,"state":{"holdingRegisters":[{"address":1,"value":501,"writable":true}]}}]
+    }`), 0o644))
+
+	port := freePort(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- Run(ctx, RunOptions{FixturePath: fixturePath, Listen: fmt.Sprintf("127.0.0.1:%d", port), TracePath: tracePath}, nil)
+	}()
+	rctx := context.Background()
+
+	first := dialClient(t, port)
+	require.NoError(t, first.WriteRegister(rctx, 1, 1, 777))
+	// State persists across requests on the same connection.
+	got, err := first.ReadHoldingRegisters(rctx, 1, 1, 1)
+	require.NoError(t, err)
+	require.Equal(t, []uint16{777}, got)
+
+	// The trace is readable while the simulator is still running.
+	recs, err := LoadTraceRecords(tracePath)
+	require.NoError(t, err)
+	require.Len(t, recs, 2)
+	require.NoError(t, first.Close())
+
+	second := dialClient(t, port)
+	got, err = second.ReadHoldingRegisters(rctx, 1, 1, 1)
+	require.NoError(t, err)
+	require.Equal(t, []uint16{501}, got)
+	require.NoError(t, second.Close())
+
+	cancel()
+	waitServerDone(t, done)
+}

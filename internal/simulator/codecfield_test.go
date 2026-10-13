@@ -61,3 +61,22 @@ func TestValidateNonOverlappingSpans_Overlap(t *testing.T) {
 	})
 	require.NotEmpty(t, problems)
 }
+
+func TestValidateFixture_Uint64FullRange(t *testing.T) {
+	fx := `{"schemaVersion":"modbus-simulator.fixture.v1","devices":[{"unitId":1,"state":{"holdingRegisters":[
+	  {"address":0,"codec":"uint64/layout:12345678","value":18446744073709551615}]}}]}`
+	f, err := ValidateFixtureBytes([]byte(fx))
+	require.NoError(t, err)
+	store, err := BuildStore(f)
+	require.NoError(t, err)
+	regs, err := store.ReadHolding(1, 0, 4)
+	require.NoError(t, err)
+	require.Equal(t, []uint16{0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}, regs)
+}
+
+func TestCoerceJSONValue_Uint64Rejects(t *testing.T) {
+	for _, in := range []string{"-1", "18446744073709551616", "1.5"} {
+		_, err := coerceJSONValue(json.Number(in), codec.CodecValueUint64)
+		require.Error(t, err, in)
+	}
+}

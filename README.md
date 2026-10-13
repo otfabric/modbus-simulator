@@ -1,12 +1,13 @@
 # modbus-simulator
 
-[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Reference](https://pkg.go.dev/badge/github.com/otfabric/modbus-simulator.svg)](https://pkg.go.dev/github.com/otfabric/modbus-simulator)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/otfabric/modbus-simulator)](https://goreportcard.com/report/github.com/otfabric/modbus-simulator)
 [![CI](https://github.com/otfabric/modbus-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/otfabric/modbus-simulator/actions/workflows/ci.yml)
+[![Code Coverage](https://codecov.io/gh/otfabric/modbus-simulator/graph/badge.svg)](https://codecov.io/gh/otfabric/modbus-simulator)
 [![Release](https://img.shields.io/github/v/release/otfabric/modbus-simulator?label=release)](https://github.com/otfabric/modbus-simulator/releases)
 
-Deterministic, stateful Modbus **TCP device simulator** for integration and end-to-end testing. Load a declarative JSON fixture (raw registers or [go-modbus](https://github.com/otfabric/go-modbus) codec fields with typed values), serve one or more Modbus devices from a single listener, optionally record a JSONL trace of every request, and assert traces in CI.
+Deterministic, stateful Modbus **TCP device simulator** for integration and end-to-end testing. Load a declarative JSON fixture (raw registers or [go-modbus](https://github.com/otfabric/go-modbus) codec fields with typed values), serve one or more Modbus devices from a single listener (plain TCP or TLS), optionally record a JSONL trace of every request, and assert traces in CI.
 
 Repository: [github.com/otfabric/modbus-simulator](https://github.com/otfabric/modbus-simulator)
 
@@ -28,24 +29,31 @@ See [REQUIREMENTS.md](./REQUIREMENTS.md) for the full specification.
 - 📄 [Artifacts](#artifacts)
 - 🧩 [Codec register fields](#codec-register-fields)
 - 📡 [Supported function codes (v1)](#supported-function-codes-v1)
+- 🧠 [State, reset and reload](#state-reset-and-reload)
+- 💥 [Fault injection](#fault-injection)
+- 📣 [Broadcast](#broadcast)
+- 🔒 [TLS](#tls)
+- ⚠️ [Limitations](#limitations)
 - 📚 [Examples](#examples)
 - 🛠️ [Development](#development)
 - 📜 [License](#license)
 
 ## Install
 
-Requires **Go 1.25+** to build from source.
+Download a pre-built binary for Linux, macOS or Windows from [GitHub Releases](https://github.com/otfabric/modbus-simulator/releases), or install with Go (**1.25+**):
 
 ```bash
 go install github.com/otfabric/modbus-simulator@latest
 ```
 
-Or build from source:
+Or build from a checkout:
 
 ```bash
-make build          # bin/modbus-simulator
-make install        # copies to /usr/local/bin
+make build          # lint + test, then bin/modbus-simulator
+make install        # copies to /usr/local/bin (uses sudo)
 ```
+
+`make build` runs the full `make check` first and needs [staticcheck](https://staticcheck.dev/) and [golangci-lint](https://golangci-lint.run/) v2 on `PATH`. For a plain build without them: `go build -o bin/modbus-simulator .`
 
 ## Quick start
 
@@ -114,7 +122,12 @@ Start the stateful Modbus TCP simulator from a fixture. Runs until interrupted (
 | `--listen` | `MODBUS_SIMULATOR_LISTEN` | `:5020` | TCP listen address (`host:port`) |
 | `--trace` | `MODBUS_SIMULATOR_TRACE` | *(none)* | JSONL trace output path |
 | `--trace-decoded` | `MODBUS_SIMULATOR_TRACE_DECODED` | `false` | Include typed codec decode overlay in trace records |
-| `--max-clients` | `MODBUS_SIMULATOR_MAX_CLIENTS` | `0` (unlimited) | Max concurrent clients |
+| `--trace-raw` | `MODBUS_SIMULATOR_TRACE_RAW` | `false` | Include the request and response PDU bytes (hex) in trace records |
+| `--max-clients` | `MODBUS_SIMULATOR_MAX_CLIENTS` | `0` (unlimited) | Max concurrent clients; a client over the limit is disconnected |
+| `--control` | `MODBUS_SIMULATOR_CONTROL` | *(disabled)* | HTTP control API address (`host:port`) — see [State, reset and reload](#state-reset-and-reload) |
+| `--tls-cert` | `MODBUS_SIMULATOR_TLS_CERT` | *(none)* | Server certificate (PEM) — see [TLS](#tls) |
+| `--tls-key` | `MODBUS_SIMULATOR_TLS_KEY` | *(none)* | Server private key (PEM) |
+| `--tls-client-ca` | `MODBUS_SIMULATOR_TLS_CLIENT_CA` | *(none)* | CA certificates (PEM) that client certificates must chain to |
 
 #### Examples
 
@@ -125,8 +138,14 @@ modbus-simulator run --fixture device.json
 # Custom listen address and trace output
 modbus-simulator run --fixture device.json --listen :1502 --trace trace.jsonl
 
-# Trace with typed codec decode overlay
-modbus-simulator run --fixture examples/codec-floats.json --trace trace.jsonl --trace-decoded
+# Trace with typed codec decode overlay and the PDU bytes
+modbus-simulator run --fixture examples/codec-floats.json --trace trace.jsonl --trace-decoded --trace-raw
+
+# Control API for reset and reload
+modbus-simulator run --fixture device.json --control 127.0.0.1:5021
+
+# TLS with client certificates
+modbus-simulator run --fixture device.json --tls-cert server.pem --tls-key server.key --tls-client-ca ca.pem
 
 # Environment variables instead of flags
 MODBUS_SIMULATOR_FIXTURE=device.json MODBUS_SIMULATOR_LISTEN=:5020 modbus-simulator run
@@ -281,15 +300,88 @@ Discover IDs with `modbus-simulator codecs list`. Validation runs JSON Schema pl
 |----|------|
 | 1, 5, 15 | Coils |
 | 2 | Discrete inputs (read-only) |
-| 3, 6, 16 | Holding registers |
+| 3, 6, 16, 22, 23 | Holding registers |
 | 4 | Input registers (read-only) |
 | 43 / 14 | Device identification |
 
-TCP only in v1 (RTU server deferred). All devices in a fixture share one TCP listener and are routed by unit ID (`1–247`).
+- **FC22 (mask write)** sets the register to `(current AND andMask) OR (orMask AND NOT andMask)`.
+- **FC23 (read/write multiple)** makes the write first, then the read, as one step. If either is not allowed, nothing is written.
+
+All devices in a fixture share one listener and are routed by unit ID (`1–247`). A request for a unit ID that is not in the fixture is answered with an `illegal_function` exception.
+
+## State, reset and reload
+
+A device's `stateMode` (set in `defaults` or per device in `behavior`) decides who sees a write:
+
+| `stateMode` | State |
+|-------------|-------|
+| `persistent` (default) | One state shared by all clients, for as long as the simulator runs. |
+| `resetOnConnection` | Every client connection works on its own copy of the fixture values, discarded when it disconnects. Clients do not see each other's writes, and a new connection never disturbs one that is in progress. |
+
+With `run --control <host:port>` a running simulator also takes commands over HTTP, so a test suite can start it once and reset it between cases:
+
+| Request | Effect |
+|---------|--------|
+| `POST /reset` | Restore every unit to the fixture values, for all clients |
+| `POST /reset?unit=N` | Restore one unit (`404` when it is not in the fixture) |
+| `POST /reload` | Read the fixture file again and serve it from then on. A fixture that is not valid is refused with `422` and the simulator carries on unchanged |
+| `GET /healthz` | `200` while the simulator runs |
+
+```bash
+modbus-simulator run --fixture device.json --control 127.0.0.1:5021 &
+curl -X POST http://127.0.0.1:5021/reset
+curl -X POST http://127.0.0.1:5021/reload
+```
+
+Replies are JSON (`{"ok":true}`, or `{"ok":false,"error":"…"}`). The control API has **no authentication**: bind it to a loopback address. Resets and reloads are not written to the trace; `seq` simply continues.
+
+## Fault injection
+
+Fault rules in a device's `behavior.faults` change how a matching request is answered (see [REQUIREMENTS.md](./REQUIREMENTS.md#fault-rules-optional-lower-priority-than-exceptions-for-v1) for the match grammar):
+
+| `fault` | On the wire | In the trace |
+|---------|-------------|--------------|
+| `delay` | The normal response, after `delayMs` | `ok: true`, `matchedRule` |
+| `timeout` | **No response**; the connection stays open, so the client runs into its own timeout. `delayMs`, when set, is waited first | `ok: false`, `fault: "timeout"` |
+| `connectionClose` | The connection is **closed** without a response | `ok: false`, `fault: "connectionClose"` |
+
+```json
+{ "id": "hr-100-timeout", "match": { "fc": 3, "address": 100 }, "fault": "timeout" }
+```
+
+## Broadcast
+
+Set `"broadcast": true` at the top level of a fixture to make unit `0` the broadcast address, as on a serial line behind a gateway:
+
+- A write to unit 0 (FC 5, 6, 15, 16, 22) is executed by every device that can take it; a device where the address is unknown or read-only ignores it. **No response is sent.**
+- Any other request to unit 0 is ignored and left unanswered.
+- The trace has one record with `"unitId": 0` and `"response": {"ok": true, "noResponse": true}`; each entry of `stateChanges` names the `unitId` it changed.
+- Exception and fault rules belong to a device and are not applied to a broadcast.
+
+Without it (the default), unit 0 is an unknown unit and is answered with `illegal_function`.
+
+## TLS
+
+Give `run` a server certificate, its key and a client CA to serve Modbus/TCP Security instead of plain TCP:
+
+```bash
+modbus-simulator run --fixture device.json --listen :8020 \
+  --tls-cert server.pem --tls-key server.key --tls-client-ca ca.pem
+```
+
+All three are required: clients must present a certificate that chains to `--tls-client-ca` (mutual TLS). The trace records `"transport": "tcp+tls"`.
+
+## Limitations
+
+- **No RTU/serial server.** The listener is TCP, plain or with TLS.
+- **Codec fields are register areas only** (no coil/bit codecs). Writes need not align with codec field boundaries; `decoded[]` (`--trace-decoded`) lists only fields fully covered by the request.
+- **`--trace-raw` PDUs are re-encoded**, not captured: the request as the simulator decoded it and the response it returned, encoded as the specification prescribes. Padding bits of an FC15 request are zero, and the response of FC43 is not included.
+
+See [RELEASE.md](./RELEASE.md) for per-release notes.
 
 ## Examples
 
-Ready-to-run fixtures in [`examples/`](./examples/) — **19 total** (10 function-code, 9 codec bundles). Each file has a TCP integration test in `TestExamplesIntegration` (`make test`). Codec bundles are checked against `modbus-simulator codecs list` by `TestExamples_AllCodecsHaveExample` (195 IDs).
+Ready-to-run fixtures in [`examples/`](./examples/) — **21 total** (12 function-code, 9 codec bundles). Each file has a TCP integration test in `TestExamplesIntegration` (`make test`). Codec bundles are checked against `modbus-simulator codecs list` by `TestExamples_AllCodecsHaveExample` (195 IDs).
 
 **Function codes**
 
@@ -303,8 +395,10 @@ Ready-to-run fixtures in [`examples/`](./examples/) — **19 total** (10 functio
 | [fc06-write-single-register.json](./examples/fc06-write-single-register.json) | 6 — Write single register | `modbus-simulator run --fixture examples/fc06-write-single-register.json` |
 | [fc15-write-multiple-coils.json](./examples/fc15-write-multiple-coils.json) | 15 — Write multiple coils | `modbus-simulator run --fixture examples/fc15-write-multiple-coils.json` |
 | [fc16-write-multiple-registers.json](./examples/fc16-write-multiple-registers.json) | 16 — Write multiple registers | `modbus-simulator run --fixture examples/fc16-write-multiple-registers.json` |
+| [fc22-mask-write-register.json](./examples/fc22-mask-write-register.json) | 22 — Mask write register | `modbus-simulator run --fixture examples/fc22-mask-write-register.json` |
+| [fc23-read-write-multiple-registers.json](./examples/fc23-read-write-multiple-registers.json) | 23 — Read/write multiple registers | `modbus-simulator run --fixture examples/fc23-read-write-multiple-registers.json` |
 | [fc43-device-identification.json](./examples/fc43-device-identification.json) | 43/14 — Device identification | `modbus-simulator run --fixture examples/fc43-device-identification.json` |
-| [all-function-codes.json](./examples/all-function-codes.json) | All of the above | `modbus-simulator run --fixture examples/all-function-codes.json` |
+| [all-function-codes.json](./examples/all-function-codes.json) | 1–6, 15, 16 and 43 in one fixture | `modbus-simulator run --fixture examples/all-function-codes.json` |
 
 **Codecs** — nine bundled fixtures cover every codec from `modbus-simulator codecs list` (195 IDs). Each file lists one example per family member with non-overlapping addresses.
 
@@ -330,12 +424,24 @@ Each fixture uses unit ID `1` on the default listen address `:5020`. The `descri
 make help                      # list targets
 make test                      # unit + race tests (includes example fixtures)
 make check                     # fmt, lint, vet, test, coverage
+make soak                      # loop the chaos and stress tests (SOAKTIME=2m)
+make fuzz                      # run the fuzz targets (FUZZTIME=30s each)
 make build                     # build bin/modbus-simulator
 make build-all                 # cross-compile release binaries
 make generate-codec-examples   # regenerate bundled codec fixtures
 ```
 
 Shell completion setup is documented under [`completion`](#completion).
+
+### Chaos, stress and fuzz tests
+
+`make test` includes a short run of all of them:
+
+- **Stress** (`stress_test.go`) — parallel clients check every answer against a model of their own registers while they all contend for a shared block; connection churn, the client limit and shutdown with requests in flight.
+- **Chaos** (`chaos_test.go`) — misbehaving raw TCP clients (garbage, truncated and oversized frames, random PDUs, illegal quantities, slow loris, pipelining, half-closed and abandoned connections) run next to the well-behaved ones, which must not notice.
+- **Fuzz** (`fuzz_test.go`) — fixtures, expectation files and arbitrary request sequences.
+
+After each run the trace must be schema-valid, numbered `1, 2, 3, …` in file order, and replay as a sequential history: every read returns what the earlier writes left behind. Randomized tests log their seed; replay one with `MODBUS_SIMULATOR_TEST_SEED=<seed>`.
 
 ## License
 

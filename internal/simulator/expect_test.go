@@ -21,7 +21,7 @@ func genTrace(t *testing.T, fixtureJSON string, ops func(ctx context.Context, h 
 	require.NoError(t, err)
 	store, err := BuildStore(f)
 	require.NoError(t, err)
-	h := NewHandler(store, jw, false)
+	h := NewHandler(store, jw, HandlerOptions{})
 	ops(context.Background(), h)
 	require.NoError(t, jw.Close())
 	return p
@@ -123,4 +123,10 @@ func TestLoadExpectation_SchemaRejectsUnknownKind(t *testing.T) {
 	_, err := LoadExpectation(writeTemp(t, "e.json",
 		`{"schemaVersion":"modbus-simulator.expect.v1","assertions":[{"kind":"bogus","match":{}}]}`))
 	require.Error(t, err)
+}
+
+func TestEvaluateAssertions_MissingMatchFails(t *testing.T) {
+	report := EvaluateAssertions(nil, &Expectation{Assertions: []Assertion{{Kind: KindContains}, {Kind: KindCount}}})
+	require.False(t, report.Passed)
+	require.Equal(t, 2, report.Failed)
 }

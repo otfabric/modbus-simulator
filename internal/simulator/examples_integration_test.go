@@ -71,6 +71,23 @@ var exampleCases = []exampleCase{
 		},
 	},
 	{
+		fixture: "fc22-mask-write-register.json",
+		exercise: func(t *testing.T, ctx context.Context, c *modbus.Client) {
+			require.NoError(t, c.MaskWriteRegister(ctx, exampleUnitID, 4, 0x00F2, 0x0025))
+			got, err := c.ReadHoldingRegister(ctx, exampleUnitID, 4)
+			require.NoError(t, err)
+			require.Equal(t, uint16(0x17), got)
+		},
+	},
+	{
+		fixture: "fc23-read-write-multiple-registers.json",
+		exercise: func(t *testing.T, ctx context.Context, c *modbus.Client) {
+			got, err := c.ReadWriteMultipleRegisters(ctx, exampleUnitID, 9, 4, 10, []uint16{200, 300})
+			require.NoError(t, err)
+			require.Equal(t, []uint16{100, 200, 300, 400}, got)
+		},
+	},
+	{
 		fixture: "fc15-write-multiple-coils.json",
 		exercise: func(t *testing.T, ctx context.Context, c *modbus.Client) {
 			want := []bool{true, false, true}

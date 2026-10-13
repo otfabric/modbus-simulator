@@ -33,17 +33,16 @@ func newCodecsListCmd() *cobra.Command {
   modbus-simulator codecs list --family float
   modbus-simulator codecs list --format json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkFormat(format); err != nil {
+				return err
+			}
 			items := filterCodecDescriptors(family)
-			switch strings.ToLower(strings.TrimSpace(format)) {
-			case "json":
+			if strings.EqualFold(strings.TrimSpace(format), "json") {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(items)
-			case "", "text":
-				return renderCodecList(cmd.OutOrStdout(), items)
-			default:
-				return fmt.Errorf("invalid format %q (expected: text, json)", format)
 			}
+			return renderCodecList(cmd.OutOrStdout(), items)
 		},
 	}
 	c.Flags().StringVar(&family, "family", "", "Filter by codec family (integer, float, text, bcd, bytes, network, hardware_address, decimal_limb, time, vendor_specific)")
@@ -90,5 +89,3 @@ func renderCodecList(w io.Writer, items []codecListItem) error {
 	}
 	return nil
 }
-
-func init() { rootCmd.AddCommand(newCodecsCmd()) }

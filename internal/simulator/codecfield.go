@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/otfabric/go-modbus/codec"
@@ -168,14 +170,7 @@ func coerceJSONValue(v any, kind codec.CodecValueKind) (any, error) {
 		}
 		return int32(n), nil
 	case codec.CodecValueUint48, codec.CodecValueUint64:
-		n, err := asInt64(v)
-		if err != nil {
-			return nil, err
-		}
-		if n < 0 {
-			return nil, fmt.Errorf("value %d out of range for unsigned integer", n)
-		}
-		return uint64(n), nil
+		return asUint64(v)
 	case codec.CodecValueInt48, codec.CodecValueInt64:
 		n, err := asInt64(v)
 		if err != nil {
@@ -250,6 +245,31 @@ func asInt64(v any) (int64, error) {
 			return 0, fmt.Errorf("value must be an integer")
 		}
 		return int64(n), nil
+	default:
+		return 0, fmt.Errorf("value must be a number")
+	}
+}
+
+// asUint64 accepts the full unsigned 64-bit range, which asInt64 cannot represent.
+func asUint64(v any) (uint64, error) {
+	switch n := v.(type) {
+	case json.Number:
+		if strings.HasPrefix(n.String(), "-") {
+			return 0, fmt.Errorf("value %s out of range for unsigned integer", n)
+		}
+		u, err := strconv.ParseUint(n.String(), 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("value %s must be an unsigned 64-bit integer", n)
+		}
+		return u, nil
+	case float64:
+		if math.Trunc(n) != n {
+			return 0, fmt.Errorf("value must be an integer")
+		}
+		if n < 0 || n >= 1<<64 {
+			return 0, fmt.Errorf("value %v out of range for unsigned integer", n)
+		}
+		return uint64(n), nil
 	default:
 		return 0, fmt.Errorf("value must be a number")
 	}

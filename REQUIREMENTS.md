@@ -60,6 +60,17 @@ Round-2 review corrections (accepted with minor changes):
 | 27 | Exception/fault rule fields lacked semantic validation | Added: `addressRange.start <= end`, `quantity > 0` when present, and (trace/request) `values` non-empty for FC15/FC16. |
 | 28 | Command placement (top-level `fixture`/`trace` vs nested) | The simulator is a **dedicated `modbus-simulator` binary** exposing `run`/`validate`/`assert-trace` at the top level. |
 
+Later revisions (v1.2.0) of decisions above:
+
+| # | Earlier decision | Now |
+|---|------------------|-----|
+| 1 | TCP+TLS optional, to be enabled later | **Implemented**: `run --tls-cert/--tls-key/--tls-client-ca` (see §Transport). RTU stays deferred. |
+| 3 | `resetViaControl` and `reloadFixture` deferred for lack of a control channel | **Implemented as control actions**, not as `stateMode` values: `run --control` (see §Control API). |
+| 3 | `resetOnConnection` resets the shared state when a client connects | **State per connection**: each connection works on its own copy of the fixture values (see §Behavior section). |
+| 19 | Broadcast deferred; unit `0` rejected | **Opt-in**: a fixture with `"broadcast": true` executes writes to unit `0` on every device (see §Broadcast). A fixture `unitId` is still `1–247`. |
+| — | FC22 and FC23 deferred | **Implemented** (see §Supported Function Codes). |
+| — | Trace `raw` reserved | **Implemented**: `run --trace-raw` (see §Record shape). |
+
 ---
 
 ## High-Level Architecture
@@ -85,20 +96,23 @@ modbus-simulator assert-trace <trace.jsonl> --expect <expected.json>
 modbus-simulator
 ├── run          start the stateful TCP simulator from a fixture
 ├── validate     validate a fixture (schema + semantic checks)
-└── assert-trace assert a generated trace against expectations
+├── assert-trace assert a generated trace against expectations
+└── codecs list  list go-modbus codec IDs usable in fixture `codec` fields
 ```
 
-Fixtures, traces, and assertions belong under `simulate` rather than as unrelated
-top-level commands, which keeps the top level uncluttered and leaves room for future
-simulator subcommands (e.g. `dump-state`, `reset`, `export-fixture`, `generate`,
-`benchmark`) without further top-level churn.
+Because the simulator is a dedicated binary (resolution #28), these verbs live at the
+top level; future subcommands (e.g. `dump-state`, `reset`, `export-fixture`) can be
+added next to them.
 
 ---
 
 ## Transport (v1)
 
 - **TCP** (`tcp://`) is required.
-- **TCP+TLS** (`tcp+tls://`) is optional in v1 and may be enabled via flags later.
+- **TCP+TLS** (Modbus/TCP Security) is served when `run` is given `--tls-cert`,
+  `--tls-key` and `--tls-client-ca` (PEM files; all three are required). Clients must
+  present a certificate that chains to the client CA. The trace then records
+  `conn.transport` as `tcp+tls`.
 - **RTU / serial server is out of scope for v1**: `github.com/otfabric/go-modbus`
   provides only TCP/TLS server transports. RTU server support would require new
   transport work and is explicitly deferred.
@@ -122,19 +136,21 @@ All devices in a fixture are served on a **single TCP listener** and routed by U
 | 6 | Write Single Holding Register | `holdingRegisters` write |
 | 15 | Write Multiple Coils | `coils` write |
 | 16 | Write Multiple Holding Registers | `holdingRegisters` write |
+| 22 | Mask Write Register | `holdingRegisters` write: `(current AND andMask) OR (orMask AND NOT andMask)` |
+| 23 | Read/Write Multiple Registers | `holdingRegisters` write, then read |
 | 43 / 14 | Read Device Identification (MEI 0x0E) | device `identity` |
 
 FC5/FC15 and FC6/FC16 are distinguished in the trace via the request `fc` field
 (the library provides `FunctionCode` on each handler request).
 
-### Deferred
+FC23 is one step: the write is made first, then the read, so the read sees the values
+just written. Both are checked before anything is written; if the write targets an
+unknown or read-only register, or the read is not allowed by the `unknownAddress`
+policy, the request fails with `illegal_data_address` and nothing changes.
 
-| FC | Description |
-|----|-------------|
-| 22 | Mask Write Register |
-| 23 | Read/Write Multiple Registers |
-
-The v1 schema must not accept FC22/FC23 behavior configuration.
+In a rule `match`, `fc` may be `22` or `23`. For FC23 `address`/`addressRange` match when
+the read **or** the write covers the address, and `quantity` is the number of registers
+read.
 
 ---
 
@@ -195,7 +211,7 @@ from the file name.
 ```
 
 - **Required:** `schemaVersion`, `devices` (non-empty).
-- **Optional:** `$schema`, `name`, `description`, `defaults`, `metadata`.
+- **Optional:** `$schema`, `name`, `description`, `defaults`, `broadcast`, `metadata`.
 - `$schema` is advisory only and is **never fetched over the network**; validation uses
   the embedded schema selected by `schemaVersion`.
 - `metadata` is the only object with `"additionalProperties": true`.
@@ -217,7 +233,7 @@ from the file name.
 - **Optional:** `name`, `metadata`, `identity`, `behavior`.
 - Validation:
   - `unitId`: integer `1–247`; must be unique across `devices`. Unit `0` (the Modbus
-    broadcast address) is **rejected**; broadcast semantics are explicitly deferred.
+    broadcast address) is **rejected** as a device id; see §Broadcast for requests to it.
   - `name`: string.
 
 `behavior` fields override the top-level `defaults` for that device. `exceptions` and
@@ -240,8 +256,8 @@ from the file name.
 |------|---------|----------|------------|
 | `coils` | 1 | 5, 15 | boolean |
 | `discreteInputs` | 2 | — (read-only) | boolean |
-| `holdingRegisters` | 3 | 6, 16 | integer `0–65535` |
-| `inputRegisters` | 4 | — (read-only) | integer `0–65535` |
+| `holdingRegisters` | 3 | 6, 16 | integer `0–65535`, or a typed codec value |
+| `inputRegisters` | 4 | — (read-only) | integer `0–65535`, or a typed codec value |
 
 All four keys are optional; an omitted area is empty.
 
@@ -353,9 +369,31 @@ the request window. Documented in [`schemas/trace-v1.json`](./schemas/trace-v1.j
     growing the register map.
 - `stateMode`: `persistent` (default) or `resetOnConnection`.
   - `persistent`: runtime state persists for the lifetime of the process.
-  - `resetOnConnection`: runtime state is reset to the fixture's initial values whenever a
-    new client connection is accepted.
-  - Deferred: `resetViaControl`, `reloadFixture` (require a control channel; not in v1).
+  - `resetOnConnection`: every client connection works on its own copy of the fixture's
+    initial values, created when the connection is first served and discarded when it
+    ends. Clients do not see each other's writes, and a new connection does not disturb
+    one that is in progress.
+  - Resetting and reloading on demand are control actions, not state modes: see
+    §Control API.
+
+### Broadcast
+
+```json
+{ "schemaVersion": "modbus-simulator.fixture.v1", "broadcast": true, "devices": [] }
+```
+
+- `broadcast` (top level, boolean, default `false`). When `false`, unit `0` is an unknown
+  unit: `illegal_function`.
+- When `true`, unit `0` is the broadcast address, as on a serial line behind a gateway:
+  - a write (FC5, FC6, FC15, FC16, FC22) is executed by every device, in ascending unit
+    order. Each device takes the write as a whole or, when one of the addresses is
+    unknown or read-only for it, ignores it;
+  - any other request is ignored;
+  - **no response is sent** in either case, and the connection stays open.
+- Exception and fault rules are per device and are not applied to a broadcast.
+- Trace: one record with `unitId` `0` and `response` `{ "ok": true, "noResponse": true }`
+  (`ok: false` for an ignored request). Each `stateChanges` entry carries the `unitId` of
+  the device it changed.
 
 ### Exception rules
 
@@ -410,6 +448,11 @@ Faults model transport/runtime behavior, not Modbus exceptions.
 - `delayMs`: integer milliseconds (`>= 0`).
 - All faults set the trace `matchedRule` to the rule `id`, regardless of `ok`.
 
+> **On the wire.** `timeout` sends nothing and keeps the connection open: the client runs
+> into its own timeout, and a request it sent after the unanswered one is still served.
+> `connectionClose` closes the connection without sending a byte. Until v1.2.0 both were
+> answered with a *Server Device Failure* exception.
+
 ### Rule evaluation order
 
 Each request is resolved in this fixed order; the first stage that produces an outcome
@@ -457,7 +500,7 @@ The trace is an append-only JSONL execution log, independent of the fixture form
   "request": {},
   "response": {},
   "stateChanges": [],
-  "matchedRule": null,
+  "matchedRule": "hr-999-illegal",
   "durationMs": 2
 }
 ```
@@ -465,32 +508,46 @@ The trace is an append-only JSONL execution log, independent of the fixture form
 - **Required:** `schemaVersion`, `ts`, `seq`, `unitId`, `request`, `response`,
   `stateChanges`, `durationMs`. `stateChanges` is always present (empty array for reads,
   FC43, exceptions, and faults) so consumers never branch on its presence.
-- **Optional:** `conn`, `matchedRule`, `raw`.
+- **Optional:** `conn`, `matchedRule`, `decoded`, `raw`.
+- `response.noResponse` is `true` when no response was sent (a broadcast).
 - `seq`: monotonic counter per simulator process, starting at 1, incremented once per
-  served request across all connections.
+  served request across all connections. Records are written in `seq` order, which is the
+  order in which the requests took effect on the state, also with concurrent clients.
+- `unitId`: the unit the request was addressed to, `0–255`. A unit that is not in the
+  fixture is answered with `illegal_function` and still traced.
 - `matchedRule`: the `id` of the exception/fault rule that fired, the string
-  `"unknownAddress"` when the `unknownAddress` policy produced the outcome, or `null`/absent
-  when neither applied.
-- `raw`: optional hex-encoded request/response PDU bytes; disabled by default.
+  `"unknownAddress"` when the `unknownAddress` policy produced the outcome, or absent
+  when neither applied (the schema types it as a string; the writer never emits `null`).
+- `decoded`: typed codec overlay, present only with `run --trace-decoded`.
+- `raw`: `{ "request": "<hex>", "response": "<hex>" }`, present only with
+  `run --trace-raw`. The PDUs (function code and data, without the MBAP header) are
+  encoded from the decoded request and the returned response as the specification
+  prescribes; they are not a capture of the wire. `response` is absent when none was sent
+  and for FC43.
 
 ### Request format
 
 Every request record carries a normalized `area` (derived from the FC) so consumers and
 assertion files never need to reimplement FC→area mapping. FC43 uses `area: "identity"`.
 
-```json
+```jsonl
 { "fc": 3, "name": "read_holding_registers", "area": "holdingRegisters", "address": 0, "quantity": 2 }
 { "fc": 6, "name": "write_single_register", "area": "holdingRegisters", "address": 1, "value": 777 }
 { "fc": 16, "name": "write_multiple_registers", "area": "holdingRegisters", "address": 10, "values": [100, 200, 300] }
+{ "fc": 22, "name": "mask_write_register", "area": "holdingRegisters", "address": 4, "andMask": 242, "orMask": 37 }
+{ "fc": 23, "name": "read_write_multiple_registers", "area": "holdingRegisters", "address": 9, "quantity": 4, "writeAddress": 10, "values": [200, 300] }
 { "fc": 43, "name": "read_device_identification", "area": "identity", "meiType": 14, "readDeviceIdCode": 1, "objectId": 0 }
 ```
+
+For FC23, `address` and `quantity` describe the read, `writeAddress` and `values` the
+write; the response carries the `values` read.
 
 `values` (FC15/FC16) must be non-empty; the writer never emits an empty `values` array and
 `modbus-simulator validate`/`modbus-simulator assert-trace` reject one.
 
 ### Response format
 
-```json
+```jsonc
 { "ok": true, "values": [2301, 501] }         // read (registers: ints; coils/discrete: booleans)
 { "ok": true }                                 // successful write
 { "ok": false, "exceptionCode": "illegal_data_address" }
@@ -516,7 +573,7 @@ FC43 response:
 Writes record one entry per affected address in `stateChanges`; reads and FC43 leave
 `stateChanges` empty (`[]`).
 
-```json
+```jsonl
 { "area": "holdingRegisters", "address": 1, "before": 501, "after": 777 }
 { "area": "coils", "address": 0, "before": false, "after": true }
 ```
@@ -525,7 +582,7 @@ Multi-writes (FC15/FC16) produce one entry per address, in ascending address ord
 
 ### Example trace (JSONL)
 
-```json
+```jsonl
 {"schemaVersion":"modbus-simulator.trace.v1","ts":"2026-07-05T10:00:00.100Z","seq":1,"conn":{"transport":"tcp","remote":"127.0.0.1:54012"},"unitId":1,"request":{"fc":3,"name":"read_holding_registers","area":"holdingRegisters","address":0,"quantity":2},"response":{"ok":true,"values":[2301,501]},"stateChanges":[],"durationMs":2}
 {"schemaVersion":"modbus-simulator.trace.v1","ts":"2026-07-05T10:00:01.000Z","seq":2,"conn":{"transport":"tcp","remote":"127.0.0.1:54012"},"unitId":1,"request":{"fc":6,"name":"write_single_register","area":"holdingRegisters","address":1,"value":777},"response":{"ok":true},"stateChanges":[{"area":"holdingRegisters","address":1,"before":501,"after":777}],"durationMs":1}
 {"schemaVersion":"modbus-simulator.trace.v1","ts":"2026-07-05T10:00:02.000Z","seq":3,"conn":{"transport":"tcp","remote":"127.0.0.1:54012"},"unitId":1,"request":{"fc":3,"name":"read_holding_registers","area":"holdingRegisters","address":1,"quantity":1},"response":{"ok":true,"values":[777]},"stateChanges":[],"durationMs":1}
@@ -633,10 +690,11 @@ described in *Matching model*.
 ### `modbus-simulator validate <fixture.json>`
 
 - Validates the fixture against the embedded `modbus-simulator.fixture.v1` schema **and** the
-  semantic rules above: `unitId` in `1–247` and unique; unique addresses per area;
+  semantic rules above: `unitId` in `1–247` and unique; unique addresses (coils, discrete
+  inputs) and non-overlapping register spans per area; codec id, value and round-trip checks;
   `writable` only on writable areas; identity object id rules; mutually-exclusive
   `address`/`addressRange` with `start <= end`; `quantity > 0` when present; supported
-  FCs only in rule matches.
+  FCs only in rule matches (1–6, 15, 16, 22, 23, 43).
 - Supports `--format text|json`.
 - Exit `0` on success, `3` on any validation failure.
 
@@ -647,16 +705,51 @@ described in *Matching model*.
 | `--fixture` | `MODBUS_SIMULATOR_FIXTURE` | (required) | path to fixture JSON |
 | `--listen` | `MODBUS_SIMULATOR_LISTEN` | `:5020` | TCP listen address `host:port` |
 | `--trace` | `MODBUS_SIMULATOR_TRACE` | (none) | trace JSONL output path; omitted → no trace |
+| `--trace-decoded` | `MODBUS_SIMULATOR_TRACE_DECODED` | `false` | add the typed codec `decoded[]` overlay to trace records |
+| `--trace-raw` | `MODBUS_SIMULATOR_TRACE_RAW` | `false` | add the request and response PDU bytes to trace records |
 | `--max-clients` | `MODBUS_SIMULATOR_MAX_CLIENTS` | `0` (unlimited) | max concurrent clients |
+| `--control` | `MODBUS_SIMULATOR_CONTROL` | (disabled) | HTTP control API address `host:port` |
+| `--tls-cert` | `MODBUS_SIMULATOR_TLS_CERT` | (none) | server certificate, PEM |
+| `--tls-key` | `MODBUS_SIMULATOR_TLS_KEY` | (none) | server private key, PEM |
+| `--tls-client-ca` | `MODBUS_SIMULATOR_TLS_CLIENT_CA` | (none) | CA that client certificates must chain to, PEM |
 
 - Validates the fixture before binding the listener (same rules as `modbus-simulator validate`).
 - Runs until the context is cancelled (SIGINT/SIGTERM).
 - Startup/progress messages go to stderr; the trace goes only to the `--trace` file.
+- Each trace record is flushed as it is written, so the file can be read while `run` is
+  still serving. A record that could not be written makes `run` exit with code `4`.
+
+- The three `--tls-*` flags must be given together (usage error, exit `2`, otherwise). A
+  file that cannot be loaded makes `run` exit with code `4`.
+
+#### Control API
+
+With `--control`, `run` serves a small HTTP API for as long as it runs. It has no
+authentication and is meant for a loopback address.
+
+| Request | Effect | Status |
+|---------|--------|--------|
+| `POST /reset` | restore every unit to the fixture values, for every connection | `200` |
+| `POST /reset?unit=N` | restore one unit | `200`; `404` unknown unit; `400` not a unit id |
+| `POST /reload` | read the fixture file again, validate it and serve it; all state is dropped | `200`; `422` when the fixture is not valid — nothing changes then |
+| `GET /healthz` | liveness | `200` |
+
+- Replies are JSON: `{ "ok": true }` (plus `unit` or a `fixture` summary), or
+  `{ "ok": false, "error": "…" }`. Another method on a path is `405`.
+- A reset or reload takes effect between two requests, never in the middle of one.
+- Control actions are not written to the trace; `seq` continues. A test that resets
+  between cases can find the boundary by the requests it sends itself.
 
 ### `modbus-simulator assert-trace <trace.jsonl> --expect <expected.json>`
 
 - Flags: `--expect` (required, env `MODBUS_SIMULATOR_EXPECT`), `--format text|json`.
 - Exit codes as defined in *`assert-trace` semantics*.
+
+### `modbus-simulator codecs list`
+
+- Lists the go-modbus codec stable IDs with name, family, value kind and register/byte
+  counts (`codec.AvailableCodecDescriptors()`), sorted by ID.
+- Flags: `--family <name>` (filter), `--format text|json` (env `MODBUS_SIMULATOR_FORMAT`).
 
 ---
 

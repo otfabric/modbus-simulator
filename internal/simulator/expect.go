@@ -116,6 +116,11 @@ func LoadExpectation(path string) (*Expectation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read expectation file: %w", err)
 	}
+	return parseExpectation(data)
+}
+
+// parseExpectation validates expectation JSON against the schema and the semantic rules.
+func parseExpectation(data []byte) (*Expectation, error) {
 	if err := validateBytesAgainstSchema(ExpectSchemaVersion, data); err != nil {
 		return nil, err
 	}
@@ -178,6 +183,10 @@ func EvaluateAssertions(records []map[string]any, exp *Expectation) AssertReport
 
 func evaluateAssertion(records []map[string]any, a Assertion, index int) AssertionResult {
 	res := AssertionResult{Index: index, Kind: a.Kind, Passed: true}
+	if a.Match == nil && (a.Kind == KindContains || a.Kind == KindNotContains || a.Kind == KindCount) {
+		res.Passed, res.Detail = false, `assertion requires "match"`
+		return res
+	}
 	switch a.Kind {
 	case KindContains:
 		if countMatches(records, *a.Match) == 0 {

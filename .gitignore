@@ -1,11 +1,9 @@
 # Build output
-/bootstrap/bootstrap
 /release/*
-/docker.tar
 /modbus-simulator
 /bin/*
 
-# Scan results
+# Logs
 *.log
 
 # Editor settings

@@ -17,4 +17,6 @@ jobs:
     with:
       codecov-name: modbus-simulator
       go-versions: '["1.25", "1.26"]'
+      # The default also excludes /cmd, which has tests here.
+      test-exclude-regex: "(/example(s)?($|/)|/tools($|/))"
     secrets: inherit

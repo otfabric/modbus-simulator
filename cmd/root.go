@@ -60,10 +60,12 @@ func SetBuildMeta(version, tag, commit, buildDate string) {
 	buildMeta.buildDate = buildDate
 }
 
-var rootCmd = &cobra.Command{
-	Use:   "modbus-simulator",
-	Short: "Deterministic, stateful Modbus TCP device simulator",
-	Long: `modbus-simulator emulates one or more stateful Modbus TCP devices from a
+// newRootCmd builds a fresh command tree, so that flag values never leak between runs.
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:   "modbus-simulator",
+		Short: "Deterministic, stateful Modbus TCP device simulator",
+		Long: `modbus-simulator emulates one or more stateful Modbus TCP devices from a
 declarative JSON fixture, optionally recording a JSONL trace of every served request
 for later assertions.
 
@@ -71,20 +73,26 @@ for later assertions.
   run           start the stateful Modbus TCP simulator from a fixture
   assert-trace  assert a generated trace against expectations
   codecs        list go-modbus codec IDs (for fixture codec fields)`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.PersistentFlags().Bool("debug", false, "Print debug information")
+	root.AddCommand(
+		newValidateCmd(),
+		newRunCmd(),
+		newAssertTraceCmd(),
+		newCodecsCmd(),
+		newVersionCmd(),
+		newCompletionCmd(),
+	)
+	return root
 }
 
-func init() {
-	rootCmd.PersistentFlags().Bool("debug", false, "Print debug information")
-	rootCmd.SilenceUsage = true
-	rootCmd.SilenceErrors = true
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(completionCmd)
-}
-
-var completionCmd = &cobra.Command{
-	Use:   "completion [bash|zsh|fish|powershell]",
-	Short: "Generate shell completion scripts",
-	Long: `Generate a shell completion script for modbus-simulator.
+func newCompletionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate shell completion scripts",
+		Long: `Generate a shell completion script for modbus-simulator.
 
 To load completions:
 
@@ -99,53 +107,66 @@ Fish:
 
 PowerShell:
   modbus-simulator completion powershell | Out-String | Invoke-Expression`,
-	DisableFlagsInUseLine: true,
-	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-	Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		switch args[0] {
-		case "bash":
-			return rootCmd.GenBashCompletion(cmd.OutOrStdout())
-		case "zsh":
-			return rootCmd.GenZshCompletion(cmd.OutOrStdout())
-		case "fish":
-			return rootCmd.GenFishCompletion(cmd.OutOrStdout(), true)
-		case "powershell":
-			return rootCmd.GenPowerShellCompletionWithDesc(cmd.OutOrStdout())
-		default:
-			return fmt.Errorf("unsupported shell %q", args[0])
-		}
-	},
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			root, out := cmd.Root(), cmd.OutOrStdout()
+			switch args[0] {
+			case "bash":
+				return root.GenBashCompletion(out)
+			case "zsh":
+				return root.GenZshCompletion(out)
+			case "fish":
+				return root.GenFishCompletion(out, true)
+			case "powershell":
+				return root.GenPowerShellCompletionWithDesc(out)
+			default:
+				return fmt.Errorf("unsupported shell %q", args[0])
+			}
+		},
+	}
 }
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version of modbus-simulator",
-	Run: func(cmd *cobra.Command, args []string) {
-		out := cmd.OutOrStdout()
-		ver := strings.TrimSpace(buildMeta.version)
-		if ver == "" {
-			ver = "(unknown)"
-		}
-		_, _ = fmt.Fprintf(out, "modbus-simulator version: %s\n", ver)
-		if s := strings.TrimSpace(buildMeta.tag); s != "" {
-			_, _ = fmt.Fprintf(out, "tag:        %s\n", s)
-		}
-		if s := strings.TrimSpace(buildMeta.commit); s != "" {
-			_, _ = fmt.Fprintf(out, "commit:     %s\n", s)
-		}
-		if s := strings.TrimSpace(buildMeta.buildDate); s != "" {
-			_, _ = fmt.Fprintf(out, "build date: %s\n", s)
-		}
-	},
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the version of modbus-simulator",
+		Run: func(cmd *cobra.Command, args []string) {
+			out := cmd.OutOrStdout()
+			ver := strings.TrimSpace(buildMeta.version)
+			if ver == "" {
+				ver = "(unknown)"
+			}
+			_, _ = fmt.Fprintf(out, "modbus-simulator version: %s\n", ver)
+			if s := strings.TrimSpace(buildMeta.tag); s != "" {
+				_, _ = fmt.Fprintf(out, "tag:        %s\n", s)
+			}
+			if s := strings.TrimSpace(buildMeta.commit); s != "" {
+				_, _ = fmt.Fprintf(out, "commit:     %s\n", s)
+			}
+			if s := strings.TrimSpace(buildMeta.buildDate); s != "" {
+				_, _ = fmt.Fprintf(out, "build date: %s\n", s)
+			}
+		},
+	}
 }
 
 // Execute runs the root command and returns the process exit code (main calls os.Exit).
 func Execute() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	return execute(ctx, os.Args[1:], os.Stdout, os.Stderr)
+}
 
-	err := rootCmd.ExecuteContext(ctx)
+// execute runs one command line against a fresh command tree and returns the exit code.
+func execute(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	root := newRootCmd()
+	root.SetArgs(args)
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+
+	err := root.ExecuteContext(ctx)
 	if err == nil {
 		return exitOK
 	}
@@ -153,12 +174,12 @@ func Execute() int {
 	var ee *exitError
 	if errors.As(err, &ee) {
 		if ee.err != nil {
-			fmt.Fprintln(os.Stderr, "Error:", ee.err)
+			_, _ = fmt.Fprintln(stderr, "Error:", ee.err)
 		}
 		return ee.code
 	}
 	// Untyped errors here are cobra flag/arg parsing failures.
-	fmt.Fprintln(os.Stderr, "Error:", err)
+	_, _ = fmt.Fprintln(stderr, "Error:", err)
 	return exitUsage
 }
 
@@ -171,6 +192,16 @@ func debugEnabled(cmd *cobra.Command) bool {
 // textMarshaler renders a human-oriented string for --format text.
 type textMarshaler interface {
 	MarshalTextOutput() (string, error)
+}
+
+// checkFormat rejects an unknown --format value as a usage error, before any work is done.
+func checkFormat(format string) error {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "", "text", "json":
+		return nil
+	default:
+		return &exitError{code: exitUsage, err: fmt.Errorf("invalid format %q (expected: text, json)", format)}
+	}
 }
 
 // render writes v to w according to format ("text" default, or "json").

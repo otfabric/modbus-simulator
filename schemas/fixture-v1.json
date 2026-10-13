@@ -31,6 +31,10 @@
       "$ref": "#/$defs/defaults",
       "description": "Default behavior for all devices. Per-device behavior overrides these values."
     },
+    "broadcast": {
+      "type": "boolean",
+      "description": "When true, a write to unit 0 (FC05, FC06, FC15, FC16, FC22) is a broadcast: every device that can take it executes it and no response is sent. Any other request to unit 0 is left unanswered. Default false: unit 0 is an unknown unit and is answered with illegal_function."
+    },
     "devices": {
       "type": "array",
       "minItems": 1,
@@ -45,15 +49,15 @@
     },
     "stateMode": {
       "enum": ["persistent", "resetOnConnection"],
-      "description": "Runtime state reset policy. persistent: state survives for the process lifetime. resetOnConnection: writable areas reset to fixture values when a new TCP client connects."
+      "description": "Runtime state policy. persistent: one state shared by all clients, for the process lifetime. resetOnConnection: every client connection works on its own copy of the fixture values, discarded when it disconnects; clients do not see each other's writes."
     },
     "area": {
       "enum": ["coils", "discreteInputs", "holdingRegisters", "inputRegisters"],
       "description": "Modbus memory area name used in exception/fault rule match fields."
     },
     "supportedFc": {
-      "enum": [1, 2, 3, 4, 5, 6, 15, 16, 43],
-      "description": "Supported Modbus function codes for rule matching: 1 read coils, 2 read discrete inputs, 3 read holding registers, 4 read input registers, 5 write single coil, 6 write single register, 15 write multiple coils, 16 write multiple registers, 43 read device identification."
+      "enum": [1, 2, 3, 4, 5, 6, 15, 16, 22, 23, 43],
+      "description": "Supported Modbus function codes for rule matching: 1 read coils, 2 read discrete inputs, 3 read holding registers, 4 read input registers, 5 write single coil, 6 write single register, 15 write multiple coils, 16 write multiple registers, 22 mask write register, 23 read/write multiple registers, 43 read device identification."
     },
     "address": {
       "type": "integer",
@@ -369,7 +373,7 @@
         "match": { "$ref": "#/$defs/match" },
         "fault": {
           "enum": ["delay", "timeout", "connectionClose"],
-          "description": "delay: wait delayMs then serve normally. timeout/connectionClose: failure recorded in trace."
+          "description": "delay: wait delayMs, then serve normally. timeout: wait delayMs, then send no response and keep the connection. connectionClose: close the connection without a response."
         },
         "delayMs": {
           "type": "integer",

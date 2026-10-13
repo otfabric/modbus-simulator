@@ -22,9 +22,9 @@
     },
     "unitId": {
       "type": "integer",
-      "minimum": 1,
-      "maximum": 247,
-      "description": "Target Modbus unit id for this request."
+      "minimum": 0,
+      "maximum": 255,
+      "description": "Unit id the request was addressed to. Any value a client can send is recorded, also one that no device in the fixture has (answered with illegal_function)."
     },
     "conn": {
       "type": "object",
@@ -64,8 +64,14 @@
       "description": "Id of the exception/fault rule that fired, unknownAddress when that policy applied, or absent/null otherwise."
     },
     "raw": {
-      "type": "string",
-      "description": "Optional hex-encoded PDU bytes (disabled by default; not used in assertions)."
+      "type": "object",
+      "additionalProperties": false,
+      "description": "PDU bytes as hex, present with run --trace-raw (not used in assertions). The PDUs are encoded from the decoded request and the returned response as the specification prescribes.",
+      "required": ["request"],
+      "properties": {
+        "request": { "type": "string", "pattern": "^([0-9a-f]{2})+$", "description": "Request PDU: function code and data." },
+        "response": { "type": "string", "pattern": "^([0-9a-f]{2})+$", "description": "Response PDU. Absent when no response was sent and for FC43." }
+      }
     },
     "durationMs": {
       "type": "number",
@@ -86,7 +92,7 @@
       "properties": {
         "fc": {
           "type": "integer",
-          "description": "Modbus function code (1, 2, 3, 4, 5, 6, 15, 16, or 43)."
+          "description": "Modbus function code (1, 2, 3, 4, 5, 6, 15, 16, 22, 23, or 43)."
         },
         "name": {
           "type": "string",
@@ -100,7 +106,7 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 65535,
-          "description": "Starting address for read/write requests."
+          "description": "Starting address for read/write requests. For FC23 the address of the read."
         },
         "quantity": {
           "type": "integer",
@@ -115,7 +121,25 @@
         "values": {
           "type": "array",
           "items": { "$ref": "#/$defs/scalar" },
-          "description": "Multiple values for FC15/FC16 writes. Must be non-empty when present."
+          "description": "Multiple values for FC15/FC16 writes and the values FC23 writes. Must be non-empty when present."
+        },
+        "andMask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "FC22 AND mask."
+        },
+        "orMask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "FC22 OR mask."
+        },
+        "writeAddress": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "FC23 starting address of the write."
         },
         "meiType": {
           "type": "integer",
@@ -140,6 +164,10 @@
         "ok": {
           "type": "boolean",
           "description": "true when the request completed successfully."
+        },
+        "noResponse": {
+          "type": "boolean",
+          "description": "true when no response was sent: a request to unit 0 of a fixture with broadcast enabled. ok is then true for a write the devices executed and false for a request they ignored."
         },
         "values": {
           "type": "array",
@@ -190,6 +218,12 @@
       "description": "One mutated point from a write. Multi-writes produce one entry per address in ascending order.",
       "required": ["area", "address", "before", "after"],
       "properties": {
+        "unitId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 247,
+          "description": "Unit that changed. Present only in the record of a broadcast, which changes several units."
+        },
         "area": {
           "enum": ["coils", "discreteInputs", "holdingRegisters", "inputRegisters"],
           "description": "Memory area that changed (writable areas only)."

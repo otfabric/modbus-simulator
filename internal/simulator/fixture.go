@@ -56,13 +56,16 @@ const MaxRegisterValue = 65535
 
 // Fixture is the top-level fixture document (schemaVersion modbus-simulator.fixture.v1).
 type Fixture struct {
-	Schema        string         `json:"$schema,omitempty"`
-	SchemaVersion string         `json:"schemaVersion"`
-	Name          string         `json:"name,omitempty"`
-	Description   string         `json:"description,omitempty"`
-	Defaults      *Defaults      `json:"defaults,omitempty"`
-	Metadata      map[string]any `json:"metadata,omitempty"`
-	Devices       []Device       `json:"devices"`
+	Schema        string    `json:"$schema,omitempty"`
+	SchemaVersion string    `json:"schemaVersion"`
+	Name          string    `json:"name,omitempty"`
+	Description   string    `json:"description,omitempty"`
+	Defaults      *Defaults `json:"defaults,omitempty"`
+	// Broadcast makes a write to unit 0 a broadcast: every device executes it and none
+	// answers. Without it unit 0 is an unknown unit.
+	Broadcast bool           `json:"broadcast,omitempty"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
+	Devices   []Device       `json:"devices"`
 }
 
 // Defaults are fixture-wide behavior defaults overridden per device.

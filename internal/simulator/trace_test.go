@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestTrace_RecordsAreSchemaValidAndWellFormed(t *testing.T) {
 	require.NoError(t, err)
 	store, err := BuildStore(f)
 	require.NoError(t, err)
-	h := NewHandler(store, jw, false)
+	h := NewHandler(store, jw, HandlerOptions{})
 	ctx := context.Background()
 
 	// read, write, read-back, fc43, configured exception
@@ -105,4 +106,23 @@ func splitJSONL(s string) []string {
 		}
 	}
 	return out
+}
+
+func TestJSONLWriter_FlushesEachRecord(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewJSONLWriter(&buf)
+	require.NoError(t, w.Write(&TraceRecord{SchemaVersion: TraceSchemaVersion, Seq: 1}))
+	// Readable before Close.
+	require.Len(t, splitJSONL(buf.String()), 1)
+	require.NoError(t, w.Close())
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
+
+func TestJSONLWriter_WriteErrorIsReportedByClose(t *testing.T) {
+	w := NewJSONLWriter(failingWriter{})
+	require.Error(t, w.Write(&TraceRecord{Seq: 1}))
+	require.ErrorContains(t, w.Close(), "disk full")
 }

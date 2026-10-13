@@ -78,7 +78,7 @@ func TestValidateFixture_Rejections(t *testing.T) {
 		},
 		{
 			name:       "unsupported fc in match",
-			json:       minimalFixture(`{"unitId":1,"state":{},"behavior":{"exceptions":[{"match":{"fc":22},"exceptionCode":"illegal_function"}]}}`),
+			json:       minimalFixture(`{"unitId":1,"state":{},"behavior":{"exceptions":[{"match":{"fc":7},"exceptionCode":"illegal_function"}]}}`),
 			wantSubstr: "schema validation failed",
 		},
 		{

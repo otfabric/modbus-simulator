@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/otfabric/go-modbus"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ func buildHandler(t *testing.T, fixtureJSON string, w TraceWriter) *Handler {
 	require.NoError(t, err)
 	store, err := BuildStore(f)
 	require.NoError(t, err)
-	return NewHandler(store, w, false)
+	return NewHandler(store, w, HandlerOptions{})
 }
 
 const persistFixture = `{
@@ -306,7 +307,7 @@ func TestHandler_TimeoutFaultRecordsTrace(t *testing.T) {
 	w := &captureWriter{}
 	h := buildHandler(t, fx, w)
 	_, err := readHolding(t, h, 1, 1)
-	require.True(t, errors.Is(err, modbus.ErrServerDeviceFailure))
+	require.ErrorIs(t, err, modbus.ErrNoResponse)
 	require.Len(t, w.recs, 1)
 	require.False(t, w.recs[0].Response.OK)
 	require.Equal(t, FaultTimeout, w.recs[0].Response.Fault)
@@ -321,10 +322,36 @@ func TestHandler_ConnectionCloseFaultRecordsTrace(t *testing.T) {
 	w := &captureWriter{}
 	h := buildHandler(t, fx, w)
 	_, err := readHolding(t, h, 1, 1)
-	require.True(t, errors.Is(err, modbus.ErrServerDeviceFailure))
+	require.ErrorIs(t, err, errCloseConnection)
 	require.Len(t, w.recs, 1)
 	require.False(t, w.recs[0].Response.OK)
 	require.Equal(t, FaultConnectionClose, w.recs[0].Response.Fault)
 	require.Equal(t, "close", w.recs[0].MatchedRule)
 	require.Empty(t, w.recs[0].StateChanges)
+}
+
+func TestHandler_ResetOnConnection_AddressReusedAfterDisconnect(t *testing.T) {
+	fx := `{"schemaVersion":"modbus-simulator.fixture.v1","defaults":{"stateMode":"resetOnConnection"},
+	  "devices":[{"unitId":1,"state":{"holdingRegisters":[{"address":1,"value":501,"writable":true}]}}]}`
+	h := buildHandler(t, fx, nil)
+	const addr = "127.0.0.1:10001"
+
+	connCtx, disconnect := context.WithCancel(context.Background())
+	_, err := h.HandleHoldingRegisters(connCtx, &modbus.HoldingRegistersRequest{
+		UnitID: 1, FunctionCode: 6, Addr: 1, IsWrite: true, Args: []uint16{777}, ClientAddr: addr,
+	})
+	require.NoError(t, err)
+
+	disconnect()
+	require.Eventually(t, func() bool {
+		_, seen := h.conns.Load(addr)
+		return !seen
+	}, time.Second, 5*time.Millisecond)
+
+	// A later connection from the same address is a new one.
+	got, err := h.HandleHoldingRegisters(context.Background(), &modbus.HoldingRegistersRequest{
+		UnitID: 1, FunctionCode: 3, Addr: 1, Quantity: 1, ClientAddr: addr,
+	})
+	require.NoError(t, err)
+	require.Equal(t, []uint16{501}, got)
 }

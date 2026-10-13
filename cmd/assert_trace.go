@@ -24,6 +24,9 @@ func newAssertTraceCmd() *cobra.Command {
   # Machine-readable result
   modbus-simulator assert-trace trace.jsonl --expect expected.json --format json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkFormat(format); err != nil {
+				return err
+			}
 			tracePath := strings.TrimSpace(args[0])
 			if tracePath == "" {
 				return invalidInput(fmt.Errorf("trace path is required"))
@@ -48,5 +51,3 @@ func newAssertTraceCmd() *cobra.Command {
 	c.Flags().StringVar(&format, "format", envOr("MODBUS_SIMULATOR_FORMAT", "text"), "Output format: text or json")
 	return c
 }
-
-func init() { rootCmd.AddCommand(newAssertTraceCmd()) }

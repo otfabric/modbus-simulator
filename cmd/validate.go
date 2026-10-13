@@ -21,6 +21,9 @@ func newValidateCmd() *cobra.Command {
   # Machine-readable result
   modbus-simulator validate device.json --format json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkFormat(format); err != nil {
+				return err
+			}
 			path := strings.TrimSpace(args[0])
 			if path == "" {
 				return invalidInput(fmt.Errorf("fixture path is required"))
@@ -38,5 +41,3 @@ func newValidateCmd() *cobra.Command {
 	c.Flags().StringVar(&format, "format", envOr("MODBUS_SIMULATOR_FORMAT", "text"), "Output format: text or json")
 	return c
 }
-
-func init() { rootCmd.AddCommand(newValidateCmd()) }

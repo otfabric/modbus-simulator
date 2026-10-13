@@ -1,4 +1,4 @@
-.PHONY: help all run test coverage cover compile lint lint-ci fmt vet build build-nocheck build-all release-all install clean check generate-codec-examples
+.PHONY: help all run test soak fuzz coverage cover compile lint lint-ci fmt vet build build-nocheck build-all release-all install clean check generate-codec-examples
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -31,6 +31,22 @@ check: fmt lint lint-ci vet test coverage ## Run all checks (format, lint, vet, 
 test: ## Run unit tests with race detector
 	@echo "Running unit tests (race detector)"
 	@go test -count=1 -race ./...
+
+# How long the chaos and stress tests keep looping in soak mode, and how long each fuzz
+# target runs. A failing randomized test logs its seed; replay it with
+# MODBUS_SIMULATOR_TEST_SEED=<seed>.
+SOAKTIME ?= 2m
+FUZZTIME ?= 30s
+
+soak: ## Loop the chaos and stress tests under the race detector for SOAKTIME each (default 2m)
+	@echo "Soaking chaos and stress tests (SOAKTIME=$(SOAKTIME))"
+	@MODBUS_SIMULATOR_SOAK=$(SOAKTIME) go test -count=1 -race -timeout=0 -run 'TestChaos_|TestStress_' ./internal/simulator/
+
+fuzz: ## Run every fuzz target for FUZZTIME (default 30s)
+	@for target in FuzzValidateFixture FuzzExpectation FuzzHandlerRequests; do \
+		echo "Fuzzing $$target (FUZZTIME=$(FUZZTIME))"; \
+		go test -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME) ./internal/simulator/ || exit 1; \
+	done
 
 coverage: ## Run tests with coverage (writes coverage.out)
 	@echo "Running tests with coverage"
@@ -121,7 +137,7 @@ clean: ## Clean the build artifacts
 	@echo "Cleaning build artifacts"
 	@rm -rf $(BIN_DIR)
 	@rm -f $(RELEASE_DIR)/*
-	@rm -f *.{json,csv,log,mcap} results/*.{json,csv,log,mcap}
+	@rm -f coverage.out
 
 generate-codec-examples: ## Regenerate bundled codec example fixtures
 	@echo "Generating codec example fixtures"

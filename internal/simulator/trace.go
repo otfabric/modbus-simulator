@@ -23,6 +23,7 @@ type TraceRecord struct {
 	StateChanges  []StateChange  `json:"stateChanges"`
 	Decoded       []DecodedField `json:"decoded,omitempty"`
 	MatchedRule   string         `json:"matchedRule,omitempty"`
+	Raw           *TraceRaw      `json:"raw,omitempty"`
 	DurationMs    float64        `json:"durationMs"`
 }
 
@@ -36,6 +37,14 @@ type DecodedField struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// TraceRaw holds the PDUs of a transaction as hex: the request as the simulator decoded
+// it and the response it returned, each encoded the way the specification prescribes.
+// Response is empty when none was sent and for FC43, whose response go-modbus frames.
+type TraceRaw struct {
+	Request  string `json:"request"`
+	Response string `json:"response,omitempty"`
+}
+
 // TraceConn identifies the client connection.
 type TraceConn struct {
 	Transport string `json:"transport"`
@@ -43,7 +52,9 @@ type TraceConn struct {
 }
 
 // TraceRequest is the normalized request. Value/Values hold bool for coils and int for
-// register areas; FC43 fields are set only for device identification.
+// register areas. AndMask/OrMask are set for FC22. For FC23 Address and Quantity describe
+// the read, WriteAddress and Values the write. FC43 fields are set only for device
+// identification.
 type TraceRequest struct {
 	FC               uint8   `json:"fc"`
 	Name             string  `json:"name"`
@@ -52,6 +63,9 @@ type TraceRequest struct {
 	Quantity         uint16  `json:"quantity,omitempty"`
 	Value            any     `json:"value,omitempty"`
 	Values           any     `json:"values,omitempty"`
+	AndMask          *int    `json:"andMask,omitempty"`
+	OrMask           *int    `json:"orMask,omitempty"`
+	WriteAddress     *uint16 `json:"writeAddress,omitempty"`
 	MEIType          *int    `json:"meiType,omitempty"`
 	ReadDeviceIDCode *int    `json:"readDeviceIdCode,omitempty"`
 	ObjectID         *int    `json:"objectId,omitempty"`
@@ -60,6 +74,7 @@ type TraceRequest struct {
 // TraceResponse is the normalized response.
 type TraceResponse struct {
 	OK            bool           `json:"ok"`
+	NoResponse    bool           `json:"noResponse,omitempty"`
 	Values        any            `json:"values,omitempty"`
 	ExceptionCode string         `json:"exceptionCode,omitempty"`
 	Fault         string         `json:"fault,omitempty"`
@@ -80,7 +95,9 @@ type TraceWriter interface {
 	Close() error
 }
 
-// JSONLWriter writes one compact JSON object per line, safe for concurrent use.
+// JSONLWriter writes one compact JSON object per line, safe for concurrent use. Every
+// record is flushed as it is written, so the trace can be read while the simulator runs
+// and survives an abrupt stop. The first write error is sticky and reported by Close.
 type JSONLWriter struct {
 	mu  sync.Mutex
 	bw  *bufio.Writer
@@ -112,6 +129,10 @@ func (jw *JSONLWriter) Write(rec *TraceRecord) error {
 		return err
 	}
 	if _, err := jw.bw.Write(buf.Bytes()); err != nil {
+		jw.err = err
+		return err
+	}
+	if err := jw.bw.Flush(); err != nil {
 		jw.err = err
 		return err
 	}

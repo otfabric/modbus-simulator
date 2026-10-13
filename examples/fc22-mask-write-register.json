@@ -1,0 +1,17 @@
+{
+  "$schema": "../schemas/fixture-v1.json",
+  "schemaVersion": "modbus-simulator.fixture.v1",
+  "name": "fc22-mask-write-register",
+  "description": "FC22 mask write register — address 4 holds 18 (0x12); AND mask 0xF2 with OR mask 0x25 leaves 23 (0x17).",
+  "devices": [
+    {
+      "unitId": 1,
+      "name": "mask-writer",
+      "state": {
+        "holdingRegisters": [
+          { "address": 4, "value": 18, "writable": true, "name": "status_bits" }
+        ]
+      }
+    }
+  ]
+}

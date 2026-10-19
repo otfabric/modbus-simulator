@@ -28,7 +28,7 @@ See [REQUIREMENTS.md](./REQUIREMENTS.md) for the full specification.
   - 🚦 [Exit codes](#exit-codes)
 - 📄 [Artifacts](#artifacts)
 - 🧩 [Codec register fields](#codec-register-fields)
-- 📡 [Supported function codes (v1)](#supported-function-codes-v1)
+- 📡 [Supported function codes](#supported-function-codes)
 - 🧠 [State, reset and reload](#state-reset-and-reload)
 - 💥 [Fault injection](#fault-injection)
 - 📣 [Broadcast](#broadcast)
@@ -294,7 +294,7 @@ Register points in a fixture can use raw unsigned integers (`0–65535`, one reg
 
 Discover IDs with `modbus-simulator codecs list`. Validation runs JSON Schema plus semantic encode/decode round-trip checks. Optional trace overlay: `run --trace-decoded` adds a `decoded[]` field when a read/write fully covers a codec field.
 
-## Supported function codes (v1)
+## Supported function codes
 
 | FC | Area |
 |----|------|

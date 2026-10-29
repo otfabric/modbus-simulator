@@ -1,5 +1,33 @@
 # modbus-simulator Releases
 
+## v1.2.1
+
+**Date:** 2026-10-29
+**Previous release:** v1.2.0
+
+### Summary
+
+Dependency update for Modbus RTU over serial lines: go-serial v0.1.8 fixes two POSIX serial I/O bugs. No command or flag changes.
+
+### Dependencies
+
+- go-modbus v1.4.0 → v1.7.2, go-serial v0.1.6 → v0.1.8.
+
+### Fixes (from go-serial v0.1.8)
+
+- `Write` no longer loses data when the serial port's output buffer is
+  full. It used to return a short count with a nil error (or `n == -1`
+  with `EAGAIN`); it now blocks until every byte is written.
+- `Read` works when the port's file descriptor is 1024 or higher. It used
+  to return a spurious `io.EOF` at once.
+
+### Other
+
+- go-modbus v1.4.0 → v1.7.2 also brings the go-modbus fixes of v1.4.1–v1.7.2; see go-modbus's release notes.
+- Documentation: security policy with security@otfabric.io.
+
+---
+
 ## v1.2.0
 
 **Date:** 2026-10-13  

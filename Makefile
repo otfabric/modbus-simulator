@@ -1,4 +1,7 @@
-.PHONY: help all run test soak fuzz coverage cover compile lint lint-ci fmt vet build build-nocheck build-all release-all install clean check generate-codec-examples
+# Ignore any go.work in a parent directory.
+export GOWORK := off
+
+.PHONY: help all run test soak fuzz coverage cover compile lint lint-ci fmt fmt-check vuln vet build build-nocheck build-all release-all install clean check generate-codec-examples
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -73,6 +76,12 @@ lint-ci: compile ## go vet + golangci-lint (typecheck + configured linters; see 
 fmt: ## Format Go code with gofmt
 	@echo "Running gofmt"
 	@gofmt -w .
+
+fmt-check: ## Fail if any Go file is not gofmt-formatted
+	@test -z "$$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+vuln: ## Run govulncheck
+	@go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
 vet: ## Run go vet on project packages
 	@echo "Running go vet"

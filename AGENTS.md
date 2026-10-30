@@ -6,7 +6,7 @@ A deterministic, stateful Modbus TCP device simulator for integration and end-to
 
 ## Organisation standards
 
-This repository follows **otfabric/engineering policy 1.0**, profile **application** (`.otfabric/policy.yaml`). Organisation skills come from the `otfabric` plugin in the maintainer's user settings. Where this file and the organisation standards disagree, this file wins for this repository; say so in your report.
+This repository follows **otfabric/engineering policy 1.1**, profile **application** (`.otfabric/policy.yaml`). Organisation skills come from the `otfabric` plugin in the maintainer's user settings. Where this file and the organisation standards disagree, this file wins for this repository; say so in your report.
 
 ## Where the truth lives
 

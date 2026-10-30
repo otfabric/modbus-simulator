@@ -1,5 +1,16 @@
 # modbus-simulator Releases
 
+## v1.3.0
+
+**Date:** 2026-10-30
+**Previous release:** v1.2.1
+
+### Dependencies
+
+- `go-modbus` v1.7.2 → v1.10.0.
+
+---
+
 ## v1.2.1
 
 **Date:** 2026-10-29

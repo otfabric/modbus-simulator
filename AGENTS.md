@@ -15,6 +15,9 @@ This repository follows **otfabric/engineering policy 1.0**, profile **applicati
 | What the simulator must do | `REQUIREMENTS.md` |
 | Commands, exit codes, fixture format, limitations | `README.md` |
 | Fixture and trace schemas | `schemas/` |
+| Code layout, concurrency | `ARCHITECTURE.md` |
+| Why it is built this way | `docs/adr/` |
+| How to test | `TESTING.md` |
 | Release history | `RELEASE.md` |
 | Security reporting | `SECURITY.md` |
 

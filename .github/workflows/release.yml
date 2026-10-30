@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   release-modbus-simulator-binary:
-    uses: otfabric/.github/.github/workflows/go-binary-release.yml@v2
+    uses: otfabric/.github/.github/workflows/go-binary-release.yml@v2.1.0
     with:
       bump: ${{ inputs.bump }}
       binary-name: modbus-simulator

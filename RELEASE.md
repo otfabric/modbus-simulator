@@ -1,5 +1,17 @@
 # modbus-simulator Releases
 
+## v1.3.1
+
+**Date:** 2026-10-31
+**Previous release:** v1.3.0
+
+### Changed
+
+- Policy 1.2: build output in `bin/` and `release/`, a per-package coverage floor, and more tests and CI. No change in behaviour.
+- Built on go-modbus v1.10.3, go-serial v0.2.1.
+
+---
+
 ## v1.3.0
 
 **Date:** 2026-10-30

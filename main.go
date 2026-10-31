@@ -14,7 +14,10 @@ var (
 	buildDate = ""
 )
 
+// exit is os.Exit, replaced by the test of main.
+var exit = os.Exit
+
 func main() {
 	cmd.SetBuildMeta(version, tag, commit, buildDate)
-	os.Exit(cmd.Execute())
+	exit(cmd.Execute())
 }

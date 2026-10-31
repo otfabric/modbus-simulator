@@ -23,3 +23,21 @@ jobs:
       # The default also excludes /cmd, which has tests here.
       test-exclude-regex: "(/example(s)?($|/)|/tools($|/))"
     secrets: inherit
+
+  # The per-package coverage floor (TEST-012).
+  coverage-packages:
+    name: Per-package coverage
+    runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: github.com/otfabric/*
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Configure private module access
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.OTFABRIC_READ_TOKEN }}
+        run: git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+      - run: make coverage-pkg-check

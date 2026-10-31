@@ -12,11 +12,11 @@ No devices or external services are needed: tests start the simulator in-process
 | Soak | `make soak` (`SOAKTIME`, default 2m) | Loops `TestChaos_*` and `TestStress_*` under the race detector | no |
 | Vulnerabilities | `make vuln` | govulncheck | yes |
 
-`make check` runs fmt, lint, lint-ci, vet, test and coverage. CI calls the shared `go-ci` workflow on Go 1.25 and 1.26 (`.github/workflows/ci.yml`).
+`make check` runs fmt, lint, lint-ci, vet, test and the per-package coverage floor. CI calls the shared `go-ci` workflow on Go 1.25 and 1.26 (`.github/workflows/ci.yml`).
 
 ## Coverage policy
 
-CI enforces `coverage-min: 85`. `tools/` and example paths are excluded through `test-exclude-regex` in `.github/workflows/ci.yml`: the generator is not part of the binary. `cmd/` has tests and is included.
+CI enforces `coverage-min: 85` over the module and, through `make coverage-pkg-check`, `COVER_PKG_MIN` (85) per package. `tools/` and example paths are excluded through `test-exclude-regex` in `.github/workflows/ci.yml`: the generator is not part of the binary. `cmd/` has tests and is included.
 
 ## What the suites check
 

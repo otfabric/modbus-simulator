@@ -1,7 +1,7 @@
 # Ignore any go.work in a parent directory.
 export GOWORK := off
 
-.PHONY: help all run test soak fuzz coverage cover compile lint lint-ci fmt fmt-check vuln vet build build-nocheck build-all release-all install clean check generate-codec-examples
+.PHONY: help all run test soak fuzz coverage cover compile lint lint-ci fmt fmt-check vuln vet build build-nocheck build-all release-all install clean check generate-codec-examples coverage-pkg-check
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -29,7 +29,7 @@ run: ## Run the application
 	@echo "Running $(APP_NAME)"
 	@go run $(APP_SRC)
 
-check: fmt lint lint-ci vet test coverage ## Run all checks (format, lint, vet, test, coverage)
+check: fmt lint lint-ci vet test coverage-pkg-check ## Run all checks (format, lint, vet, test, coverage)
 
 test: ## Run unit tests with race detector
 	@echo "Running unit tests (race detector)"
@@ -51,9 +51,19 @@ fuzz: ## Run every fuzz target for FUZZTIME (default 30s)
 		go test -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME) ./internal/simulator/ || exit 1; \
 	done
 
+# tools/ is a generator run by hand, not part of the binary (TESTING.md).
+COVER_PKGS := $(shell go list ./... | grep -v '/tools')
+# Per-package floor (TEST-012): what the weakest package measures now, rounded down.
+COVER_PKG_MIN := 85
+
 coverage: ## Run tests with coverage (writes coverage.out)
 	@echo "Running tests with coverage"
-	@go test -count=1 -race -coverprofile=coverage.out -covermode=atomic ./...
+	@go test -count=1 -race -coverprofile=coverage.out -covermode=atomic $(COVER_PKGS)
+
+coverage-pkg-check: coverage ## Fail when a package is below COVER_PKG_MIN
+	@awk -v m="$(COVER_PKG_MIN)" 'NR > 1 { n[$$1] = $$2; if ($$3 > 0) h[$$1] = 1 } \
+	END { for (k in n) { p = k; sub(/\/[^\/]*$$/, "", p); s[p] += n[k]; if (k in h) c[p] += n[k] } \
+	for (p in s) { v = 100 * c[p] / s[p]; if (v < m) { printf "%s: %.1f%% < %s%%\n", p, v, m; bad = 1 } } exit bad }' coverage.out
 
 cover: coverage ## Open coverage report in browser (run coverage first)
 	@echo "Opening coverage report in browser"

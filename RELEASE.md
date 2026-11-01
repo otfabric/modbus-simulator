@@ -1,5 +1,17 @@
 # modbus-simulator Releases
 
+## v1.3.2
+
+**Date:** 2026-11-01
+**Previous release:** v1.3.1
+
+### Changed
+
+- Dependency update, no other change. Picks up the go-modbus fix for a response that arrives during `Client.Close`.
+- Built on go-modbus v1.10.5, go-serial v0.2.1.
+
+---
+
 ## v1.3.1
 
 **Date:** 2026-10-31

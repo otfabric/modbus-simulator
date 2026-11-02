@@ -1,5 +1,16 @@
 # modbus-simulator Releases
 
+## v1.3.3
+
+**Date:** 2026-11-03
+**Previous release:** v1.3.2
+
+### Changed
+
+- Built on go-modbus v1.10.6, whose codec count checks compare the full length of a slice. No other change.
+
+---
+
 ## v1.3.2
 
 **Date:** 2026-11-01

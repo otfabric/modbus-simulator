@@ -12,7 +12,7 @@ No devices or external services are needed: tests start the simulator in-process
 | Soak | `make soak` (`SOAKTIME`, default 2m) | Loops `TestChaos_*` and `TestStress_*` under the race detector | no |
 | Vulnerabilities | `make vuln` | govulncheck | yes |
 
-`make check` runs fmt, lint, lint-ci, vet, test and the per-package coverage floor. CI calls the shared `go-ci` workflow on Go 1.25 and 1.26 (`.github/workflows/ci.yml`).
+`make check` runs fmt, lint, lint-ci, vet, test and the per-package coverage floor. CI calls the shared `go-ci` workflow on Go 1.26 and 1.27 (`.github/workflows/ci.yml`).
 
 ## Coverage policy
 

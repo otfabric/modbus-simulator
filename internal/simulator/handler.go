@@ -612,16 +612,16 @@ func decodeQuantity(r reqInfo, res txResult) uint16 {
 func buildTraceRequest(r reqInfo) TraceRequest {
 	tr := TraceRequest{FC: r.fc, Name: r.name, Area: r.area}
 	if r.identity {
-		tr.MEIType = intPtr(r.mei)
-		tr.ReadDeviceIDCode = intPtr(r.category)
-		tr.ObjectID = intPtr(r.objectID)
+		tr.MEIType = new(r.mei)
+		tr.ReadDeviceIDCode = new(r.category)
+		tr.ObjectID = new(r.objectID)
 		return tr
 	}
 	addr := r.address
 	tr.Address = &addr
 	switch {
 	case r.fc == fcMaskWrite:
-		tr.AndMask, tr.OrMask = intPtr(int(r.andMask)), intPtr(int(r.orMask))
+		tr.AndMask, tr.OrMask = new(int(r.andMask)), new(int(r.orMask))
 	case r.fc == fcReadWrite:
 		writeAddr := r.writeAddr
 		tr.Quantity, tr.WriteAddress, tr.Values = r.quantity, &writeAddr, intSlice(r.regValues)

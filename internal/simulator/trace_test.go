@@ -100,7 +100,7 @@ func toInt(v any) int {
 
 func splitJSONL(s string) []string {
 	var out []string
-	for _, l := range strings.Split(strings.TrimRight(s, "\n"), "\n") {
+	for l := range strings.SplitSeq(strings.TrimRight(s, "\n"), "\n") {
 		if strings.TrimSpace(l) != "" {
 			out = append(out, l)
 		}

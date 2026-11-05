@@ -171,8 +171,7 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return exitOK
 	}
 
-	var ee *exitError
-	if errors.As(err, &ee) {
+	if ee, ok := errors.AsType[*exitError](err); ok {
 		if ee.err != nil {
 			_, _ = fmt.Fprintln(stderr, "Error:", ee.err)
 		}

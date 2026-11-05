@@ -258,10 +258,7 @@ func stringCandidates(id string, rc codec.RuntimeCodec) []any {
 
 	switch {
 	case strings.HasPrefix(id, "utf16"):
-		chars := bytes / 2
-		if chars < 1 {
-			chars = 1
-		}
+		chars := max(bytes/2, 1)
 		short := strings.Repeat("A", min(chars, 4))
 		return []any{short, strings.Repeat("B", chars), full[:min(len(full), bytes)]}
 	case strings.Contains(id, "signed_packed_bcd"):

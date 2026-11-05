@@ -3,7 +3,7 @@ package simulator
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"sync"
 )
 
@@ -175,7 +175,7 @@ func (s *Store) units() []uint8 {
 	for u := range s.devices {
 		out = append(out, u)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	slices.Sort(out)
 	return out
 }
 
@@ -294,7 +294,7 @@ func (s *Store) readBits(conn string, unit uint8, start, quantity uint16, coilAr
 	}
 	st := rd.state(conn)
 	out := make([]bool, 0, quantity)
-	for i := uint16(0); i < quantity; i++ {
+	for i := range quantity {
 		a := start + i
 		var val, present bool
 		if coilArea {
@@ -338,7 +338,7 @@ func (rd *runtimeDevice) readRegs(st *deviceState, start, quantity uint16, holdi
 		return nil, ErrIllegalAddress
 	}
 	out := make([]uint16, 0, quantity)
-	for i := uint16(0); i < quantity; i++ {
+	for i := range quantity {
 		a := start + i
 		var val uint16
 		var present bool
@@ -419,7 +419,7 @@ func (s *Store) writeHolding(conn string, unit uint8, start uint16, values []uin
 
 // holdingWritable reports whether n holding registers from start exist and are writable.
 func (st *deviceState) holdingWritable(start uint16, n int) bool {
-	for i := 0; i < n; i++ {
+	for i := range n {
 		addr := uint32(start) + uint32(i)
 		if addr > MaxRegisterValue {
 			return false

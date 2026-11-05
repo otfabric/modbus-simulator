@@ -155,6 +155,3 @@ func (jw *JSONLWriter) Close() error {
 }
 
 var _ TraceWriter = (*JSONLWriter)(nil)
-
-// intPtr is a small helper for optional int JSON fields.
-func intPtr(v int) *int { return &v }

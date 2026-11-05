@@ -59,13 +59,13 @@ func TestStress_HandlerParallel(t *testing.T) {
 
 	const goroutines, ops = 16, 400
 	var wg sync.WaitGroup
-	for g := 0; g < goroutines; g++ {
+	for g := range goroutines {
 		wg.Add(1)
 		go func(g int) {
 			defer wg.Done()
 			rng := rand.New(rand.NewSource(seed + int64(g)))
 			ctx, disconnect := context.WithCancel(context.Background())
-			for i := 0; i < ops; i++ {
+			for i := range ops {
 				if i%50 == 0 { // a new connection
 					disconnect()
 					ctx, disconnect = context.WithCancel(context.Background())
@@ -243,11 +243,11 @@ func TestStress_ConnectionChurn(t *testing.T) {
 	s := startSim(t, stressFixture(), RunOptions{})
 	const goroutines, cycles = 8, 40
 	errs := make(chan error, goroutines)
-	for g := 0; g < goroutines; g++ {
+	for range goroutines {
 		go func() {
 			errs <- func() error {
 				ctx := context.Background()
-				for i := 0; i < cycles; i++ {
+				for i := range cycles {
 					c, err := modbus.New(modbus.Config{URL: "tcp://" + s.addr(), Timeout: 2 * time.Second})
 					if err != nil {
 						return err
@@ -269,7 +269,7 @@ func TestStress_ConnectionChurn(t *testing.T) {
 			}()
 		}()
 	}
-	for g := 0; g < goroutines; g++ {
+	for range goroutines {
 		require.NoError(t, <-errs)
 	}
 	s.stop(t)
@@ -286,7 +286,7 @@ func TestDeterministicTrace(t *testing.T) {
 		c := dialClient(t, s.port)
 		rng := rand.New(rand.NewSource(seed))
 		m := newBlockModel(0)
-		for i := 0; i < 300; i++ {
+		for range 300 {
 			require.NoError(t, m.step(context.Background(), c, rng))
 		}
 		require.NoError(t, c.Close())

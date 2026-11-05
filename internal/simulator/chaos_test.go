@@ -221,13 +221,13 @@ func (m *monkey) pipelining() error {
 	n := 2 + m.rng.Intn(5)
 	first := m.txn + 1
 	var batch []byte
-	for i := 0; i < n; i++ {
+	for i := range n {
 		batch = append(batch, mbapFrame(m.nextTxn(), chaosUnit, readPDU(2, uint16(i), 3))...)
 	}
 	if _, err := conn.Write(batch); err != nil {
 		return err
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		resp, err := expectResponse(conn, first+uint16(i), chaosUnit, 2)
 		if err != nil {
 			return fmt.Errorf("response %d of %d: %w", i+1, n, err)
@@ -376,7 +376,7 @@ func TestChaos_EachAction(t *testing.T) {
 	for i, a := range monkeyActions {
 		t.Run(a.name, func(t *testing.T) {
 			m := &monkey{addr: s.addr(), rng: rand.New(rand.NewSource(seed + int64(i)))}
-			for n := 0; n < 20; n++ {
+			for range 20 {
 				require.NoError(t, a.run(m))
 			}
 		})
@@ -400,7 +400,7 @@ func TestChaos_MonkeysDoNotDisturbClients(t *testing.T) {
 		stop := make(chan struct{})
 		errs := make([]error, monkeys)
 		var wg sync.WaitGroup
-		for i := 0; i < monkeys; i++ {
+		for i := range monkeys {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()

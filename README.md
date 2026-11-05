@@ -1,6 +1,6 @@
 # modbus-simulator
 
-[![Go](https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![Go Reference](https://pkg.go.dev/badge/github.com/otfabric/modbus-simulator.svg)](https://pkg.go.dev/github.com/otfabric/modbus-simulator)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/otfabric/modbus-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/otfabric/modbus-simulator/actions/workflows/ci.yml)
@@ -40,7 +40,7 @@ See [REQUIREMENTS.md](./REQUIREMENTS.md) for the full specification.
 
 ## Install
 
-Download a pre-built binary for Linux, macOS or Windows from [GitHub Releases](https://github.com/otfabric/modbus-simulator/releases), or install with Go (**1.25+**):
+Download a pre-built binary for Linux, macOS or Windows from [GitHub Releases](https://github.com/otfabric/modbus-simulator/releases), or install with Go (**1.26+**):
 
 ```bash
 go install github.com/otfabric/modbus-simulator@latest

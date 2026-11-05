@@ -1,9 +1,9 @@
 module github.com/otfabric/modbus-simulator
 
-go 1.25.0
+go 1.26.0
 
 require (
-	github.com/otfabric/go-modbus v1.10.6
+	github.com/otfabric/go-modbus v1.11.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1

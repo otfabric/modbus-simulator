@@ -66,8 +66,7 @@ func newRunCmd() *cobra.Command {
 				if errors.Is(err, context.Canceled) {
 					return nil
 				}
-				var invalid *simulator.ErrFixtureInvalid
-				if errors.As(err, &invalid) {
+				if invalid, ok := errors.AsType[*simulator.ErrFixtureInvalid](err); ok {
 					return invalidInput(fmt.Errorf("invalid fixture: %w", invalid))
 				}
 				return &exitError{code: exitTransport, err: fmt.Errorf("simulator failed: %w", err)}

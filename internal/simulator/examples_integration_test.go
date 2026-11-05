@@ -182,7 +182,6 @@ var codecBundleFixtures = []string{
 
 func init() {
 	for _, fixture := range codecBundleFixtures {
-		fixture := fixture
 		exampleCases = append(exampleCases, exampleCase{
 			fixture: fixture,
 			exercise: func(t *testing.T, ctx context.Context, c *modbus.Client) {

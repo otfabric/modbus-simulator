@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -57,8 +57,8 @@ func blockBase(worker int) uint16 { return uint16(worker * 100) }
 func stressFixture() *Fixture {
 	no := false
 	var st State
-	for w := 0; w < stressWorkers; w++ {
-		for i := 0; i < blockPresent; i++ {
+	for w := range stressWorkers {
+		for i := range blockPresent {
 			addr := blockBase(w) + uint16(i)
 			hp := Point{Address: addr, Value: int(addr)}
 			cp := Point{Address: addr, Value: i%2 == 0}
@@ -71,13 +71,13 @@ func stressFixture() *Fixture {
 			st.DiscreteInputs = append(st.DiscreteInputs, Point{Address: addr, Value: i%3 == 0})
 		}
 	}
-	for i := 0; i < hotSize; i++ {
+	for i := range hotSize {
 		st.HoldingRegisters = append(st.HoldingRegisters, Point{Address: hotBase + uint16(i), Value: 0})
 		st.Coils = append(st.Coils, Point{Address: hotBase + uint16(i), Value: false})
 	}
 
 	var chaos State
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		chaos.HoldingRegisters = append(chaos.HoldingRegisters, Point{Address: uint16(i), Value: i})
 		chaos.Coils = append(chaos.Coils, Point{Address: uint16(i), Value: false})
 	}
@@ -283,7 +283,7 @@ func newReplayer(f *Fixture) *replayer {
 			}
 		}
 	}
-	sort.Slice(rp.units, func(i, j int) bool { return rp.units[i] < rp.units[j] })
+	slices.Sort(rp.units)
 	return rp
 }
 
@@ -650,7 +650,7 @@ func runWorkers(t *testing.T, s *sim, seed int64, ops int) []*blockModel {
 	models := make([]*blockModel, stressWorkers)
 	errs := make([]error, stressWorkers)
 	var wg sync.WaitGroup
-	for w := 0; w < stressWorkers; w++ {
+	for w := range stressWorkers {
 		models[w] = newBlockModel(w)
 		c := dialClient(t, s.port)
 		wg.Add(1)
@@ -658,7 +658,7 @@ func runWorkers(t *testing.T, s *sim, seed int64, ops int) []*blockModel {
 			defer wg.Done()
 			defer func() { _ = c.Close() }()
 			rng := rand.New(rand.NewSource(seed + int64(w)))
-			for i := 0; i < ops; i++ {
+			for i := range ops {
 				if err := models[w].step(context.Background(), c, rng); err != nil {
 					errs[w] = fmt.Errorf("worker %d, request %d: %w", w, i, err)
 					return

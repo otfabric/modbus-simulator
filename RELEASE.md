@@ -1,5 +1,17 @@
 # modbus-simulator Releases
 
+## v1.4.0
+
+**Date:** 2026-11-05
+**Previous release:** v1.3.3
+
+### Changed
+
+- Go 1.26 or later is required to build from source (was 1.25).
+- Built on go-modbus v1.11.0: the server closes a connection whose response cannot be written in time; RTU and ASCII links drain a late answer instead of returning it for the next request; RTU variable-length reads honour the deadline; UDP drops bytes left over from a previous datagram.
+
+---
+
 ## v1.3.3
 
 **Date:** 2026-11-03

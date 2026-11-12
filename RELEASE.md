@@ -1,5 +1,17 @@
 # modbus-simulator Releases
 
+## v1.5.0
+
+**Date:** 2026-11-13
+**Previous release:** v1.4.0
+
+### Changed
+
+- The JSON Schemas are published at `https://otfabric.io/schemas/modbus-simulator/<name>-v1.json` (`fixture-v1.json`, `trace-v1.json`, `expect-v1.json`), and their `$id`, the `$schema` examples in README.md and REQUIREMENTS.md and the test fixture use that address. The previous `https://otfabric.dev/schemas/modbus-simulator/...` addresses were never served. `$schema` stays advisory: validation uses the embedded schema selected by `schemaVersion`, and a fixture whose `$schema` names the old address still validates.
+- Built on go-modbus v1.14.5 and go-serial v0.3.0, which rejects out-of-range serial parameters instead of truncating them.
+
+---
+
 ## v1.4.0
 
 **Date:** 2026-11-05

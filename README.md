@@ -245,9 +245,9 @@ Three JSON artifacts drive the workflow:
 
 | Artifact | `schemaVersion` | Schema file | Published `$id` |
 |----------|-----------------|-------------|------------------|
-| Fixture | `modbus-simulator.fixture.v1` | [schemas/fixture-v1.json](./schemas/fixture-v1.json) | `https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json` |
-| Trace (JSONL) | `modbus-simulator.trace.v1` | [schemas/trace-v1.json](./schemas/trace-v1.json) | `https://otfabric.dev/schemas/modbus-simulator/trace-v1.json` |
-| Expectation | `modbus-simulator.expect.v1` | [schemas/expect-v1.json](./schemas/expect-v1.json) | `https://otfabric.dev/schemas/modbus-simulator/expect-v1.json` |
+| Fixture | `modbus-simulator.fixture.v1` | [schemas/fixture-v1.json](./schemas/fixture-v1.json) | `https://otfabric.io/schemas/modbus-simulator/fixture-v1.json` |
+| Trace (JSONL) | `modbus-simulator.trace.v1` | [schemas/trace-v1.json](./schemas/trace-v1.json) | `https://otfabric.io/schemas/modbus-simulator/trace-v1.json` |
+| Expectation | `modbus-simulator.expect.v1` | [schemas/expect-v1.json](./schemas/expect-v1.json) | `https://otfabric.io/schemas/modbus-simulator/expect-v1.json` |
 
 ```
 schemas/

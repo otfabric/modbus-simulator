@@ -1,6 +1,7 @@
 package simulator
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -15,6 +16,24 @@ func TestValidateFixture_ValidExample(t *testing.T) {
 	require.Equal(t, uint8(1), f.Devices[0].UnitID)
 	require.Equal(t, UnknownAddressException, f.ResolvedUnknownAddress(&f.Devices[0]))
 	require.Equal(t, StateModePersistent, f.ResolvedStateMode(&f.Devices[0]))
+}
+
+// $schema is advisory: the published address, the old otfabric.dev one and a relative
+// path all validate, against the embedded schema selected by schemaVersion.
+func TestValidateFixture_SchemaURLAdvisory(t *testing.T) {
+	raw, err := os.ReadFile("testdata/valid_device.json")
+	require.NoError(t, err)
+	const published = "https://otfabric.io/schemas/modbus-simulator/fixture-v1.json"
+	require.Contains(t, string(raw), published)
+	for _, u := range []string{
+		published,
+		"https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json",
+		"../schemas/fixture-v1.json",
+	} {
+		f, err := ValidateFixtureBytes([]byte(strings.Replace(string(raw), published, u, 1)))
+		require.NoError(t, err, u)
+		require.Equal(t, u, f.Schema)
+	}
 }
 
 // minimalFixture returns a valid single-device fixture with the given device body spliced in.

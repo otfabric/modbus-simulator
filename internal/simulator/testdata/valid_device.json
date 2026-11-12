@@ -1,5 +1,5 @@
 {
-  "$schema": "https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json",
+  "$schema": "https://otfabric.io/schemas/modbus-simulator/fixture-v1.json",
   "schemaVersion": "modbus-simulator.fixture.v1",
   "name": "gateway-integration-test",
   "defaults": { "unknownAddress": "exception", "stateMode": "persistent" },

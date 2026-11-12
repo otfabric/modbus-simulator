@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://otfabric.dev/schemas/modbus-simulator/expect-v1.json",
+  "$id": "https://otfabric.io/schemas/modbus-simulator/expect-v1.json",
   "title": "modbus-simulator expectation v1",
   "description": "Trace assertion file for modbus-simulator assert-trace. Matching is subset (partial): only fields present in a matcher are compared. ts, durationMs, and raw are never matched.",
   "type": "object",

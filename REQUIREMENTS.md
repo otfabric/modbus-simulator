@@ -14,7 +14,7 @@ measurements or discovery captures.
 
 Data-format identifiers use the `modbus-simulator.*` prefix
 (`modbus-simulator.fixture.v1`, `modbus-simulator.trace.v1`, `modbus-simulator.expect.v1`).
-The optional `$schema` URLs under `otfabric.dev/schemas/modbus-simulator/…` are advisory;
+The optional `$schema` URLs under `otfabric.io/schemas/modbus-simulator/…` are advisory;
 validation uses embedded schemas selected by `schemaVersion`.
 
 ---
@@ -197,7 +197,7 @@ from the file name.
 
 ```json
 {
-  "$schema": "https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json",
+  "$schema": "https://otfabric.io/schemas/modbus-simulator/fixture-v1.json",
   "schemaVersion": "modbus-simulator.fixture.v1",
   "name": "gateway-integration-test-device",
   "description": "optional free text",
@@ -757,7 +757,7 @@ authentication and is meant for a loopback address.
 
 ```json
 {
-  "$schema": "https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json",
+  "$schema": "https://otfabric.io/schemas/modbus-simulator/fixture-v1.json",
   "schemaVersion": "modbus-simulator.fixture.v1",
   "name": "gateway-integration-test",
   "defaults": { "unknownAddress": "exception", "stateMode": "persistent" },

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://otfabric.dev/schemas/modbus-simulator/fixture-v1.json",
+  "$id": "https://otfabric.io/schemas/modbus-simulator/fixture-v1.json",
   "title": "modbus-simulator fixture v1",
   "description": "Declarative description of the initial simulated Modbus world. Loaded once at simulator startup. Register points may use raw uint16 values or go-modbus codec IDs with typed values. Each device is served on a single TCP listener and routed by unitId.",
   "type": "object",

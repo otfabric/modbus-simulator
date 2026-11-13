@@ -1,5 +1,16 @@
 # modbus-simulator Releases
 
+## v1.5.1
+
+**Date:** 2026-11-13
+**Previous release:** v1.5.0
+
+### Changed
+
+- Built on go-modbus v1.15.0 (was v1.14.5). With TLS (`--tls-cert`), a new connection at `--max-clients` replaces the oldest connection still in its TLS handshake instead of being refused; connections that completed the handshake are never replaced. A TLS handshake times out after 10 s (was 30 s).
+
+---
+
 ## v1.5.0
 
 **Date:** 2026-11-13

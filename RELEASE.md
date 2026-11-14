@@ -1,5 +1,18 @@
 # modbus-simulator Releases
 
+## v1.5.5
+
+**Date:** 2026-11-14
+**Previous release:** v1.5.4
+
+No change to the application's options or output.
+
+### Changed
+
+- Built on go-modbus v1.16.0 (was v1.15.3) (go-modbus RELEASE.md, v1.16.0). For the simulator this means: application code the server calls that does not return normally (a handler, a metrics hook, the logger) is logged with its stack and handled as an error of that request instead of ending the process, and a connection refused to keep within the client limit is counted by the library's new connection metrics hook.
+
+---
+
 ## v1.5.4
 
 **Date:** 2026-11-14

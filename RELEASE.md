@@ -1,5 +1,18 @@
 # modbus-simulator Releases
 
+## v1.5.3
+
+**Date:** 2026-11-14
+**Previous release:** v1.5.2
+
+No change to the application.
+
+### Changed
+
+- Built on go-modbus v1.15.2 (was v1.15.1): after a failed `Accept` the server waits before it tries again, a metrics hook that does not return normally is contained, an RTU request longer than a frame is refused before it is sent, and a request whose context ends while the deadline is set is not sent (go-modbus RELEASE.md, v1.15.2).
+
+---
+
 ## v1.5.2
 
 **Date:** 2026-11-14

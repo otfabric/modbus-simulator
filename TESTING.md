@@ -26,3 +26,14 @@ CI enforces `coverage-min: 85` over the module and, through `make coverage-pkg-c
 
 - Randomized tests log their seed; replay one with `MODBUS_SIMULATOR_TEST_SEED=<seed>`.
 - Fuzz: a failing input lands in `internal/simulator/testdata/fuzz/<target>/`. Commit it with the fix: `make test` replays that corpus.
+
+## When CI runs
+
+| Event | Workflow | What runs |
+|---|---|---|
+| Pull request | `pr.yml` | `policy.yml` (otfabric-policy) always; `ci.yml` unless every changed file is documentation; then `OT Fabric Required Checks` |
+| Push to a branch | none | nothing; dispatch `ci.yml` to test a branch without a pull request |
+| Push to `main` | `policy.yml` | the light checks; the merged commit was tested as the pull request's merge commit |
+| Release | `release.yml` | the release workflow tests the release commit again |
+
+Documentation means an added or modified `*.md` file outside `.github/`, `testdata/` and `vendor/`, other than `AGENTS.md` and `CLAUDE.md`. A deleted or renamed document, or any other file, runs everything. `OT Fabric Required Checks` fails unless every job that applies succeeded; its summary lists them.

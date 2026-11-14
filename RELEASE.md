@@ -1,5 +1,19 @@
 # modbus-simulator Releases
 
+## v1.5.2
+
+**Date:** 2026-11-14
+**Previous release:** v1.5.1
+
+No change to commands or output.
+
+### Changed
+
+- Built on go-modbus v1.15.1 (was v1.15.0). The go-modbus library code is the same in both releases.
+- CI: otfabric/engineering policy 1.6, the shared workflows v3.8.0, and one pull request workflow with a single required check. otfabric-policy runs in a workflow of its own (`policy.yml`) on every pull request and push to `main`.
+
+---
+
 ## v1.5.1
 
 **Date:** 2026-11-13

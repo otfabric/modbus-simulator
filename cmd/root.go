@@ -154,9 +154,18 @@ func newVersionCmd() *cobra.Command {
 
 // Execute runs the root command and returns the process exit code (main calls os.Exit).
 func Execute() int {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signalContext()
 	defer stop()
 	return execute(ctx, os.Args[1:], os.Stdout, os.Stderr)
+}
+
+// signalContext returns a context that SIGINT or SIGTERM cancels. The first signal
+// restores the default handling, so that a second one ends the process even when the
+// shutdown that the first one started does not finish.
+func signalContext() (context.Context, context.CancelFunc) {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	context.AfterFunc(ctx, stop)
+	return ctx, stop
 }
 
 // execute runs one command line against a fresh command tree and returns the exit code.
@@ -234,28 +243,60 @@ func envOr(key, def string) string {
 	return def
 }
 
-// envUint parses an unsigned integer env var, returning def on unset/invalid.
-func envUint(key string, def uint) uint {
+// envDefaults takes flag defaults from environment variables and keeps the values that
+// cannot be parsed, so that the command can refuse them as a usage error, as it refuses
+// the same value given as a flag.
+type envDefaults struct {
+	bad []envValueError
+}
+
+// envValueError is an environment variable whose value is not valid for its flag.
+type envValueError struct {
+	flag string
+	err  error
+}
+
+// uintValue returns the unsigned integer in the variable key, or def when it is unset or
+// empty. It must fit in a uint of the platform.
+func (e *envDefaults) uintValue(flag, key string, def uint) uint {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
 		return def
 	}
-	n, err := strconv.ParseUint(v, 10, 64)
+	n, err := strconv.ParseUint(v, 10, strconv.IntSize)
 	if err != nil {
+		e.add(flag, key, v, err)
 		return def
 	}
 	return uint(n)
 }
 
-// envBool parses a boolean env var, returning def on unset/invalid.
-func envBool(key string, def bool) bool {
+// boolValue returns the boolean in the variable key (as strconv.ParseBool reads it), or def
+// when it is unset or empty.
+func (e *envDefaults) boolValue(flag, key string, def bool) bool {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
 		return def
 	}
 	b, err := strconv.ParseBool(v)
 	if err != nil {
+		e.add(flag, key, v, err)
 		return def
 	}
 	return b
+}
+
+func (e *envDefaults) add(flag, key, value string, err error) {
+	e.bad = append(e.bad, envValueError{flag: flag, err: fmt.Errorf("invalid value %q of environment variable %s: %w", value, key, err)})
+}
+
+// check returns a usage error for the first variable that is not valid, unless its flag
+// was given on the command line, which takes precedence.
+func (e *envDefaults) check(cmd *cobra.Command) error {
+	for _, b := range e.bad {
+		if !cmd.Flags().Changed(b.flag) {
+			return &exitError{code: exitUsage, err: b.err}
+		}
+	}
+	return nil
 }

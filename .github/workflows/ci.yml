@@ -43,3 +43,22 @@ jobs:
           TOKEN: ${{ secrets.OTFABRIC_READ_TOKEN }}
         run: git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
       - run: make coverage-pkg-check
+
+  # The bundled codec examples are generated (AGENTS.md hard rule 6): regenerate them and
+  # fail on any difference from the committed files (TEST-011).
+  generated:
+    name: Generated codec examples
+    runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: github.com/otfabric/*
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Configure private module access
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.OTFABRIC_READ_TOKEN }}
+        run: git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+      - run: make generate-check

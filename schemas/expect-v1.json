@@ -61,15 +61,24 @@
       "properties": {
         "request": {
           "type": "object",
-          "description": "Partial request object to match (e.g. fc, area, address, quantity, value, values)."
+          "description": "Partial request object to match (e.g. fc, area, address, quantity, value, values). Only the fields of a trace request may be named.",
+          "propertyNames": {
+            "enum": ["fc", "name", "area", "address", "quantity", "value", "values", "andMask", "orMask", "writeAddress", "meiType", "readDeviceIdCode", "objectId"]
+          }
         },
         "response": {
           "type": "object",
-          "description": "Partial response object to match (e.g. ok, values, exceptionCode, fault)."
+          "description": "Partial response object to match (e.g. ok, values, exceptionCode, fault). Only the fields of a trace response may be named.",
+          "propertyNames": {
+            "enum": ["ok", "noResponse", "values", "exceptionCode", "fault", "identity"]
+          }
         },
         "stateChange": {
           "type": "object",
-          "description": "Partial state change to match against any entry in the record stateChanges array (e.g. area, address, after)."
+          "description": "Partial state change to match against any entry in the record stateChanges array (e.g. area, address, after). Only the fields of a trace state change may be named.",
+          "propertyNames": {
+            "enum": ["unitId", "area", "address", "before", "after"]
+          }
         }
       }
     }

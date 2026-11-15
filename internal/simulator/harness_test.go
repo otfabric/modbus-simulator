@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"sync"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"github.com/otfabric/go-modbus"
+	"github.com/otfabric/modbus-simulator/internal/leakcheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -226,19 +226,11 @@ func soakRounds(t *testing.T, round func(t *testing.T, n int)) {
 	}
 }
 
-// requireNoGoroutineLeak waits for the goroutine count to return to the baseline.
-func requireNoGoroutineLeak(t *testing.T, baseline int) {
+// requireNoGoroutineLeak fails the test when a goroutine that was not running at
+// baseline is still running, and names it with its stack.
+func requireNoGoroutineLeak(t *testing.T, baseline leakcheck.Snapshot) {
 	t.Helper()
-	const slack = 2
-	deadline := time.Now().Add(5 * time.Second)
-	for runtime.NumGoroutine() > baseline+slack {
-		if time.Now().After(deadline) {
-			buf := make([]byte, 1<<20)
-			t.Fatalf("goroutine leak: %d running, baseline %d\n%s",
-				runtime.NumGoroutine(), baseline, buf[:runtime.Stack(buf, true)])
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	leakcheck.Check(t, baseline)
 }
 
 // --- trace replay ---

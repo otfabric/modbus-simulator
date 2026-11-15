@@ -2,11 +2,13 @@ package simulator
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/otfabric/go-modbus"
+	"github.com/otfabric/modbus-simulator/schemas"
 	"github.com/stretchr/testify/require"
 )
 
@@ -129,4 +131,58 @@ func TestEvaluateAssertions_MissingMatchFails(t *testing.T) {
 	report := EvaluateAssertions(nil, &Expectation{Assertions: []Assertion{{Kind: KindContains}, {Kind: KindCount}}})
 	require.False(t, report.Passed)
 	require.Equal(t, 2, report.Failed)
+}
+
+// A matcher may only name fields that trace records have: a key that no record has would
+// never match, so that notContains and count with equals 0 or atMost would pass whatever
+// the trace holds.
+func TestLoadExpectation_UnknownMatcherKey(t *testing.T) {
+	doc := func(assertion string) string {
+		return `{"schemaVersion":"modbus-simulator.expect.v1","assertions":[` + assertion + `]}`
+	}
+	for name, assertion := range map[string]string{
+		"request":        `{"kind":"notContains","match":{"request":{"fc":6,"register":1}}}`,
+		"response":       `{"kind":"contains","match":{"response":{"okay":true}}}`,
+		"stateChange":    `{"kind":"count","match":{"stateChange":{"addr":1}},"equals":0}`,
+		"in a sequence":  `{"kind":"ordered","sequence":[{"request":{"fc":6}},{"request":{"function":3}}]}`,
+		"a record field": `{"kind":"notContains","match":{"request":{"seq":1}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := parseExpectation([]byte(doc(assertion)))
+			require.ErrorContains(t, err, "schema validation failed")
+		})
+	}
+
+	// Every field of a trace request, response and state change may be named.
+	_, err := parseExpectation([]byte(doc(`{"kind":"contains","match":{
+	  "request":{"fc":3,"name":"n","area":"coils","address":1,"quantity":1,"value":1,"values":[1],"andMask":1,"orMask":1,
+	    "writeAddress":1,"meiType":14,"readDeviceIdCode":1,"objectId":0},
+	  "response":{"ok":true,"noResponse":false,"values":[1],"exceptionCode":"illegal_function","fault":"delay","identity":{"vendorName":"v"}},
+	  "stateChange":{"unitId":1,"area":"coils","address":1,"before":false,"after":true}}}`)))
+	require.NoError(t, err)
+}
+
+// The fields a matcher may name are the fields of the trace schema.
+func TestExpectSchema_MatcherKeysAreTraceFields(t *testing.T) {
+	load := func(name string) map[string]any {
+		data, err := schemas.FS.ReadFile(name)
+		require.NoError(t, err)
+		var doc map[string]any
+		require.NoError(t, json.Unmarshal(data, &doc))
+		return doc
+	}
+	defs := func(doc map[string]any) map[string]any { return doc["$defs"].(map[string]any) }
+	traceDefs := defs(load(schemas.TraceV1))
+	matcher := defs(load(schemas.ExpectV1))["matcher"].(map[string]any)["properties"].(map[string]any)
+	for matcherKey, traceDef := range map[string]string{"request": "request", "response": "response", "stateChange": "stateChange"} {
+		var want []string
+		for k := range traceDefs[traceDef].(map[string]any)["properties"].(map[string]any) {
+			want = append(want, k)
+		}
+		var got []string
+		for _, k := range matcher[matcherKey].(map[string]any)["propertyNames"].(map[string]any)["enum"].([]any) {
+			got = append(got, k.(string))
+		}
+		require.ElementsMatch(t, want, got, matcherKey)
+	}
 }

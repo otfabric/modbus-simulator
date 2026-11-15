@@ -299,6 +299,9 @@ Validation rules:
   IP/MAC strings) matching the codec `ValueKind`.
 - `codec`: optional go-modbus stable ID on register points; must resolve via
   `codec.RuntimeCodecByID`. Semantic validation encodes and round-trip decodes the value.
+  A value for a `float32` codec must lie within the float32 range (magnitude at most
+  `3.4028235e38`, the largest float32 after rounding); a larger one is a validation error
+  rather than an infinity.
 - `writable`: boolean. **Allowed only on `coils` and `holdingRegisters`.** The schema
   rejects `writable` on `discreteInputs` and `inputRegisters`.
 - `name`, `description`: optional strings.
@@ -339,13 +342,19 @@ the request window. Documented in [`schemas/trace-v1.json`](./schemas/trace-v1.j
 - `objects[]` supplies additional identity objects. `id` is an integer `0–255`; `value`
   is a string. Ids `0x00–0x02` **must not** appear in `objects` (they are set by the
   named fields); duplicate ids are rejected. Vendor-specific objects use `0x80–0xFF`.
+- Every identity value (`vendorName`, `productCode`, `majorMinorRevision`, `objects[].value`)
+  is at most **244 bytes** in UTF-8: the longest value one FC43 response can carry (a
+  response PDU has 253 bytes, 7 before the object list, and 2 per object for its id and
+  length). A longer value is a validation error.
 - FC43/14 behavior:
   - If `identity` is **absent**, the device returns `illegal_function` for FC43.
   - If `identity` is **present** but a requested object id is not configured, the simulator
     returns only the available objects per normal FC43 semantics (stream reads return the
-    configured objects for the requested category; an individual read of a missing object
-    returns no object rather than fabricating one). It does **not** return `illegal_function`
-    in this case.
+    configured objects for the requested category). It does **not** return
+    `illegal_function` in this case.
+  - An individual read (`readDeviceIdCode` 4) of an object id that is not configured is
+    answered with `illegal_data_address`, and the trace records `ok: false`,
+    `exceptionCode: "illegal_data_address"`.
 
 ### Behavior section
 
@@ -612,6 +621,10 @@ timestamps or byte-for-byte equality. They answer questions such as:
   specifies equals the corresponding record field. `request.area` may be used directly.
 - A `stateChange` (singular) in an expectation matches a record when **any** element of
   that record's `stateChanges` array matches all specified fields (e.g. `after` alone).
+- A matcher may name only the fields of the trace record it matches: the fields of
+  `request`, of `response` and of a `stateChanges` entry in `schemas/trace-v1.json`. Any
+  other key is a validation error (exit `3`), so a misspelt field cannot make
+  `notContains` or a `count` bound pass by never matching.
 
 ### Expectation file (`modbus-simulator.expect.v1`)
 
@@ -691,8 +704,9 @@ described in *Matching model*.
 
 - Validates the fixture against the embedded `modbus-simulator.fixture.v1` schema **and** the
   semantic rules above: `unitId` in `1–247` and unique; unique addresses (coils, discrete
-  inputs) and non-overlapping register spans per area; codec id, value and round-trip checks;
-  `writable` only on writable areas; identity object id rules; mutually-exclusive
+  inputs) and non-overlapping register spans per area; codec id, value (including the
+  float32 range) and round-trip checks; `writable` only on writable areas; identity object
+  id rules and the 244-byte limit of identity values; mutually-exclusive
   `address`/`addressRange` with `start <= end`; `quantity > 0` when present; supported
   FCs only in rule matches (1–6, 15, 16, 22, 23, 43).
 - Supports `--format text|json`.
@@ -713,11 +727,22 @@ described in *Matching model*.
 | `--tls-key` | `MODBUS_SIMULATOR_TLS_KEY` | (none) | server private key, PEM |
 | `--tls-client-ca` | `MODBUS_SIMULATOR_TLS_CLIENT_CA` | (none) | CA that client certificates must chain to, PEM |
 
+- An environment variable whose value is not valid for its flag is a usage error (exit
+  `2`) that names the variable, as the same value given as the flag is, unless the flag is
+  given on the command line. `MODBUS_SIMULATOR_MAX_CLIENTS` is a decimal unsigned integer
+  that fits the platform's `uint`; `MODBUS_SIMULATOR_TRACE_DECODED` and
+  `MODBUS_SIMULATOR_TRACE_RAW` are `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`,
+  `FALSE`, `false` or `False`. An empty variable is unset.
 - Validates the fixture before binding the listener (same rules as `modbus-simulator validate`).
-- Runs until the context is cancelled (SIGINT/SIGTERM).
+- Runs until the context is cancelled (SIGINT/SIGTERM). The first signal starts the
+  shutdown: the control API, then the Modbus server, waiting at most 10 s in all for the
+  requests in progress. When they have not finished by then, `run` exits with code `4` and
+  leaves the trace file unclosed. A second signal ends the process at once.
 - Startup/progress messages go to stderr; the trace goes only to the `--trace` file.
 - Each trace record is flushed as it is written, so the file can be read while `run` is
-  still serving. A record that could not be written makes `run` exit with code `4`.
+  still serving. A record that could not be written makes `run` exit with code `4`. The
+  first such failure is reported at once: one warning line on stderr, and `GET /healthz`
+  answers `503` from then on. Requests are still served.
 
 - The three `--tls-*` flags must be given together (usage error, exit `2`, otherwise). A
   file that cannot be loaded makes `run` exit with code `4`.
@@ -732,11 +757,21 @@ authentication and is meant for a loopback address.
 | `POST /reset` | restore every unit to the fixture values, for every connection | `200` |
 | `POST /reset?unit=N` | restore one unit | `200`; `404` unknown unit; `400` not a unit id |
 | `POST /reload` | read the fixture file again, validate it and serve it; all state is dropped | `200`; `422` when the fixture is not valid — nothing changes then |
-| `GET /healthz` | liveness | `200` |
+| `GET /healthz` | liveness, and that the trace file is still written | `200`; `503` once a trace record could not be written |
 
 - Replies are JSON: `{ "ok": true }` (plus `unit` or a `fixture` summary), or
   `{ "ok": false, "error": "…" }`. Another method on a path is `405`.
-- A reset or reload takes effect between two requests, never in the middle of one.
+- A request that carries an `Origin` header is refused with `403`, whatever its method and
+  path: browsers send that header with the requests a web page makes, and the API is for
+  test scripts.
+- HTTP timeouts: 5 s to send the request header; idle keep-alive connections are closed
+  after 30 s.
+- A reset or reload takes effect between two requests, never in the middle of one. A
+  request that is answered after a reload is answered from the new fixture: its unit,
+  broadcast and exception rules are those of the new fixture, also when it was matched
+  against the old one before the reload, and its `matchedRule` names a rule of the new
+  fixture or none. A `timeout` or `connectionClose` fault that already acted on it is
+  kept; a `delay` that was already waited is not repeated.
 - Control actions are not written to the trace; `seq` continues. A test that resets
   between cases can find the boundary by the requests it sends itself.
 

@@ -125,15 +125,18 @@
       "properties": {
         "vendorName": {
           "type": "string",
-          "description": "Vendor name (identity object 0x00)."
+          "maxLength": 244,
+          "description": "Vendor name (identity object 0x00). At most 244 bytes in UTF-8, what one FC43 response object can carry."
         },
         "productCode": {
           "type": "string",
-          "description": "Product code (identity object 0x01)."
+          "maxLength": 244,
+          "description": "Product code (identity object 0x01). At most 244 bytes in UTF-8."
         },
         "majorMinorRevision": {
           "type": "string",
-          "description": "Firmware revision string (identity object 0x02)."
+          "maxLength": 244,
+          "description": "Firmware revision string (identity object 0x02). At most 244 bytes in UTF-8."
         },
         "objects": {
           "type": "array",
@@ -156,7 +159,8 @@
         },
         "value": {
           "type": "string",
-          "description": "Object value as a string."
+          "maxLength": 244,
+          "description": "Object value as a string. At most 244 bytes in UTF-8."
         }
       }
     },

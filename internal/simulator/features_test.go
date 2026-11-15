@@ -253,8 +253,16 @@ func TestHandler_ResetOnConnection_ClientsAreIsolated(t *testing.T) {
 
 func httpDo(t *testing.T, method, url string) (int, controlReply) {
 	t.Helper()
+	return httpDoHeader(t, method, url, nil)
+}
+
+func httpDoHeader(t *testing.T, method, url string, header http.Header) (int, controlReply) {
+	t.Helper()
 	req, err := http.NewRequest(method, url, nil)
 	require.NoError(t, err)
+	for k, vs := range header {
+		req.Header[k] = vs
+	}
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
@@ -326,6 +334,50 @@ func TestControlAPI(t *testing.T) {
 	requireContiguousSeq(t, s.records(t))
 	_, err = http.Get(base + "/healthz")
 	require.Error(t, err, "the control API stops with the simulator")
+}
+
+// A request that carries an Origin header, as a web browser sends it for a page, is
+// refused on every path and changes nothing. Scripts send none and are served.
+func TestControlAPI_RefusesRequestsFromWebPages(t *testing.T) {
+	control := fmt.Sprintf("127.0.0.1:%d", freePort(t))
+	s := startSim(t, stressFixture(), RunOptions{Control: control})
+	base := "http://" + control
+	ctx := context.Background()
+	c := dialClient(t, s.port)
+	defer func() { _ = c.Close() }()
+	read := func() uint16 {
+		got, err := c.ReadHoldingRegister(ctx, 1, 3)
+		require.NoError(t, err)
+		return got
+	}
+
+	require.NoError(t, c.WriteRegister(ctx, 1, 3, 4242))
+	for _, tc := range []struct{ method, path, origin string }{
+		{http.MethodPost, "/reset", "http://example.com"},
+		{http.MethodPost, "/reset?unit=1", "http://127.0.0.1:8080"},
+		{http.MethodPost, "/reload", "null"},
+		{http.MethodGet, "/healthz", "http://example.com"},
+		{http.MethodGet, "/reset", "http://example.com"},
+	} {
+		status, reply := httpDoHeader(t, tc.method, base+tc.path, http.Header{"Origin": {tc.origin}})
+		require.Equal(t, http.StatusForbidden, status, "%s %s", tc.method, tc.path)
+		require.False(t, reply.OK)
+		require.Contains(t, reply.Error, "Origin header")
+	}
+	require.EqualValues(t, 4242, read(), "a refused reset or reload changed the state")
+
+	status, reply := httpDo(t, http.MethodPost, base+"/reset")
+	require.Equal(t, http.StatusOK, status)
+	require.True(t, reply.OK)
+	require.EqualValues(t, 3, read())
+}
+
+// The control API bounds how long a client may take to send its header and how long an
+// idle keep-alive connection is kept.
+func TestControlAPI_Timeouts(t *testing.T) {
+	srv := newControlServer(&control{})
+	require.Equal(t, 5*time.Second, srv.ReadHeaderTimeout)
+	require.Equal(t, 30*time.Second, srv.IdleTimeout)
 }
 
 func TestRun_ControlAddressInUse(t *testing.T) {

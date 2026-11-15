@@ -2,6 +2,7 @@ package simulator
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -144,5 +145,52 @@ func TestValidateFixture_Rejections(t *testing.T) {
 			require.Truef(t, strings.Contains(err.Error(), tc.wantSubstr),
 				"error %q does not contain %q", err.Error(), tc.wantSubstr)
 		})
+	}
+}
+
+// An identity value is at most 244 bytes long, what one FC43 response object can carry.
+// The length counts bytes in UTF-8, not characters.
+func TestValidateFixture_IdentityValueLength(t *testing.T) {
+	identity := func(vendor, object string) string {
+		return minimalFixture(`{"unitId":1,"state":{},"identity":{"vendorName":` + strconv.Quote(vendor) +
+			`,"productCode":"p","majorMinorRevision":"1","objects":[{"id":128,"value":` + strconv.Quote(object) + `}]}}`)
+	}
+	for _, tc := range []struct {
+		name           string
+		vendor, object string
+		wantErr        string
+	}{
+		{name: "empty", vendor: "", object: ""},
+		{name: "1 byte", vendor: "v", object: "o"},
+		{name: "243 bytes", vendor: strings.Repeat("v", 243), object: strings.Repeat("o", 243)},
+		{name: "244 bytes", vendor: strings.Repeat("v", 244), object: strings.Repeat("o", 244)},
+		{name: "244 bytes in 2-byte characters", vendor: strings.Repeat("é", 122), object: "o"},
+		{name: "vendorName 245 bytes", vendor: strings.Repeat("v", 245), object: "o", wantErr: "schema validation failed"},
+		{name: "object 245 bytes", vendor: "v", object: strings.Repeat("o", 245), wantErr: "schema validation failed"},
+		{name: "vendorName 246 bytes in 123 characters", vendor: strings.Repeat("é", 123), object: "o", wantErr: "identity.vendorName: value is 246 bytes, at most 244"},
+		{name: "object 246 bytes in 123 characters", vendor: "v", object: strings.Repeat("é", 123), wantErr: "identity.objects[0]: value is 246 bytes, at most 244"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ValidateFixtureBytes([]byte(identity(tc.vendor, tc.object)))
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+
+	// productCode and majorMinorRevision are held to the same length.
+	for _, field := range []string{"productCode", "majorMinorRevision"} {
+		id := &Identity{VendorName: "v", ProductCode: "p", MajorMinorRevision: "1"}
+		long := strings.Repeat("é", 123)
+		if field == "productCode" {
+			id.ProductCode = long
+		} else {
+			id.MajorMinorRevision = long
+		}
+		problems := validateIdentity("dev", id)
+		require.Len(t, problems, 1, field)
+		require.Contains(t, problems[0], "identity."+field+": value is 246 bytes")
 	}
 }

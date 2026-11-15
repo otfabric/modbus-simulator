@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,4 +165,43 @@ func TestE2E_ResetOnConnectionAndLiveTrace(t *testing.T) {
 
 	cancel()
 	waitServerDone(t, done)
+}
+
+// FC43: the trace records the answer go-modbus sends. Individual access to an object the
+// fixture does not configure is answered with illegal data address, on the wire and in
+// the trace; a configured object and a stream read are answered, also with a value of
+// the largest length that validation accepts.
+func TestE2E_DeviceIdentificationTraceMatchesTheWire(t *testing.T) {
+	long := strings.Repeat("v", maxIdentityValueLen)
+	f := &Fixture{SchemaVersion: FixtureSchemaVersion, Devices: []Device{{
+		UnitID:   1,
+		Identity: &Identity{VendorName: long, ProductCode: "P", MajorMinorRevision: "1", Objects: []IdentityObject{{ID: 0x80, Value: long}}},
+		State:    State{HoldingRegisters: []Point{{Address: 0, Value: 1}}},
+	}}}
+	s := startSim(t, f, RunOptions{TraceRaw: true})
+	c := dialClient(t, s.port)
+	ctx := context.Background()
+
+	_, err := c.ReadDeviceIdentification(ctx, 1, modbus.DeviceIDIndividual, 0x85)
+	require.ErrorIs(t, err, modbus.ErrIllegalDataAddress)
+	id, err := c.ReadDeviceIdentification(ctx, 1, modbus.DeviceIDIndividual, 0x80)
+	require.NoError(t, err)
+	require.Equal(t, long, deviceIDObjectValue(id, 0x80))
+	id, err = c.ReadDeviceIdentification(ctx, 1, modbus.DeviceIDBasic, 0)
+	require.NoError(t, err)
+	require.Equal(t, long, deviceIDObjectValue(id, 0x00))
+	require.NoError(t, c.Close())
+
+	s.stop(t)
+	recs := s.records(t)
+	// The stream read takes two requests: the 244-byte vendor name fills a response.
+	require.Len(t, recs, 4)
+	require.False(t, recs[0].Response.OK)
+	require.Equal(t, ExcIllegalDataAddress, recs[0].Response.ExceptionCode)
+	require.Nil(t, recs[0].Response.Identity)
+	require.Equal(t, "ab02", recs[0].Raw.Response)
+	for _, rec := range recs[1:] {
+		require.True(t, rec.Response.OK)
+		require.Equal(t, long, rec.Response.Identity.VendorName)
+	}
 }

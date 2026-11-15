@@ -3,6 +3,7 @@ package simulator
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,6 +22,9 @@ type HandlerOptions struct {
 	TraceRaw bool
 	// Transport is the transport name recorded in the trace; "tcp" when empty.
 	Transport string
+	// OnTraceError, when set, is called once, with the first error of the trace writer.
+	// It is called while the handler holds its commit lock and must not call the handler.
+	OnTraceError func(error)
 }
 
 // Handler implements the go-modbus RequestHandler, MaskWriteHandler, ReadWriteHandler
@@ -36,6 +40,12 @@ type Handler struct {
 	// the trace lists the requests in the order in which they took effect.
 	commitMu sync.Mutex
 	conns    sync.Map // remote addrs of the connections seen and not yet ended
+	inFlight atomic.Int64
+	traceErr atomic.Pointer[error] // the first error of the trace writer
+
+	// beforeCommit, when set by a test, is called after the rules were applied and
+	// before the commit lock is taken.
+	beforeCommit func()
 }
 
 // NewHandler builds a handler over store. writer may be nil (no trace).
@@ -168,11 +178,26 @@ const (
 )
 
 func (h *Handler) serve(ctx context.Context, r reqInfo) txResult {
+	h.inFlight.Add(1)
+	defer h.inFlight.Add(-1)
 	h.trackConnection(ctx, r.clientAddr)
 	start := h.now()
-	res, act := h.evaluate(ctx, r)
+	res, act, gen := h.evaluate(ctx, r)
+	if h.beforeCommit != nil {
+		h.beforeCommit()
+	}
 
 	h.commitMu.Lock()
+	if res.fault == "" && h.store.generation() != gen {
+		// The fixture was reloaded after the rules were applied, typically while a delay
+		// fault held the request. The request takes effect after the reload, so it is
+		// answered from the new fixture: the broadcast and unit checks and the exception
+		// rules again. The fault rules are not applied a second time.
+		var final bool
+		if res, act, final = h.store.requestRules(r.unit).decide(r); !final {
+			res, act = txResult{}, actOperate
+		}
+	}
 	switch act {
 	case actOperate:
 		rule := res.matchedRule
@@ -236,41 +261,64 @@ func (h *Handler) ReplaceStore(other *Store) {
 	h.store.Replace(other)
 }
 
+// inProgress returns the number of requests the handler is serving.
+func (h *Handler) inProgress() int64 { return h.inFlight.Load() }
+
+// TraceError returns the first error of the trace writer, or nil.
+func (h *Handler) TraceError() error {
+	if p := h.traceErr.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
+
 // evaluate applies the configured rules. It returns either the final result, or what
 // remains to be done: run the request against the state (steps 3 and 4 of the rule
 // evaluation order; a matchedRule in the result is then kept) or run it as a broadcast.
-func (h *Handler) evaluate(ctx context.Context, r reqInfo) (txResult, action) {
-	if r.unit == 0 && h.store.Broadcast() {
-		return txResult{}, actBroadcast
-	}
-	exceptions, faults, ok := h.store.deviceMeta(r.unit)
-	if !ok {
-		// No such simulated unit: report illegal function (device not present).
-		return txResult{ok: false, exceptionCode: ExcIllegalFunction, err: modbus.ErrIllegalFunction}, actDone
-	}
-
-	// 1. configured exception rules (first match wins).
-	for i := range exceptions {
-		if matchRequest(exceptions[i].Match, r) {
-			code := exceptions[i].ExceptionCode
-			return txResult{
-				ok:            false,
-				exceptionCode: code,
-				matchedRule:   ruleID(exceptions[i].ID, "exception", i),
-				err:           exceptionErr(code),
-			}, actDone
-		}
+// It also returns the generation of the fixture whose rules it applied.
+func (h *Handler) evaluate(ctx context.Context, r reqInfo) (txResult, action, uint64) {
+	rules := h.store.requestRules(r.unit)
+	if res, act, final := rules.decide(r); final {
+		return res, act, rules.gen
 	}
 
 	// 2. configured fault rules (first match wins).
-	for i := range faults {
-		if matchRequest(faults[i].Match, r) {
-			return h.applyFault(ctx, faults[i], i)
+	for i := range rules.faults {
+		if matchRequest(rules.faults[i].Match, r) {
+			res, act := h.applyFault(ctx, rules.faults[i], i)
+			return res, act, rules.gen
 		}
 	}
 
 	// 3. + 4. built-in validation and normal state operation.
-	return txResult{}, actOperate
+	return txResult{}, actOperate, rules.gen
+}
+
+// decide applies the steps of the rule evaluation order that do not wait: the broadcast
+// and unit checks and the configured exception rules (step 1). final is false when the
+// request goes on to the fault rules.
+func (rr requestRules) decide(r reqInfo) (res txResult, act action, final bool) {
+	if r.unit == 0 && rr.broadcast {
+		return txResult{}, actBroadcast, true
+	}
+	if !rr.found {
+		// No such simulated unit: report illegal function (device not present).
+		return txResult{ok: false, exceptionCode: ExcIllegalFunction, err: modbus.ErrIllegalFunction}, actDone, true
+	}
+
+	// 1. configured exception rules (first match wins).
+	for i := range rr.exceptions {
+		if matchRequest(rr.exceptions[i].Match, r) {
+			code := rr.exceptions[i].ExceptionCode
+			return txResult{
+				ok:            false,
+				exceptionCode: code,
+				matchedRule:   ruleID(rr.exceptions[i].ID, "exception", i),
+				err:           exceptionErr(code),
+			}, actDone, true
+		}
+	}
+	return txResult{}, actOperate, false
 }
 
 func (h *Handler) applyFault(ctx context.Context, ft FaultRule, idx int) (txResult, action) {
@@ -368,6 +416,13 @@ func (h *Handler) operateIdentity(r reqInfo) txResult {
 	}
 	for _, o := range id.Objects {
 		objs = append(objs, modbus.DeviceIdentificationObject{ID: modbus.DeviceIDObjectID(o.ID), Value: o.Value})
+	}
+	if r.category == int(modbus.DeviceIDIndividual) && !slices.ContainsFunc(objs, func(o modbus.DeviceIdentificationObject) bool {
+		return int(o.ID) == r.objectID
+	}) {
+		// go-modbus answers individual access to an object the device does not have with
+		// illegal data address; the trace records that answer.
+		return txResult{ok: false, exceptionCode: ExcIllegalDataAddress, err: modbus.ErrIllegalDataAddress}
 	}
 	return txResult{
 		ok:       true,
@@ -584,7 +639,9 @@ func (h *Handler) emit(r reqInfo, res txResult, durationMs float64) {
 	if h.opts.TraceRaw {
 		rec.Raw = buildTraceRaw(r, res)
 	}
-	_ = h.writer.Write(rec)
+	if err := h.writer.Write(rec); err != nil && h.traceErr.CompareAndSwap(nil, &err) && h.opts.OnTraceError != nil {
+		h.opts.OnTraceError(err)
+	}
 }
 
 func decodeQuantity(r reqInfo, res txResult) uint16 {

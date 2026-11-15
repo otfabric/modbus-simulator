@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/otfabric/modbus-simulator/internal/leakcheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -393,7 +393,7 @@ func TestChaos_MonkeysDoNotDisturbClients(t *testing.T) {
 	soakRounds(t, func(t *testing.T, n int) {
 		const monkeys, minActions, ops = 6, 40, 200
 		seed := seed + int64(n)*1000
-		baseline := runtime.NumGoroutine()
+		baseline := leakcheck.Take()
 		f := stressFixture()
 		s := startSim(t, f, RunOptions{})
 

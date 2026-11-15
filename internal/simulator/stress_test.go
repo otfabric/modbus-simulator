@@ -9,12 +9,12 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/otfabric/go-modbus"
+	"github.com/otfabric/modbus-simulator/internal/leakcheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +25,7 @@ func TestStress_ParallelClients(t *testing.T) {
 	seed := testSeed(t)
 	soakRounds(t, func(t *testing.T, n int) {
 		const ops = 300
-		baseline := runtime.NumGoroutine()
+		baseline := leakcheck.Take()
 		f := stressFixture()
 		s := startSim(t, f, RunOptions{})
 
@@ -205,12 +205,15 @@ func TestStress_ClientLimit(t *testing.T) {
 	}, 3*time.Second, 50*time.Millisecond)
 }
 
-// Stopping the simulator does not wait for requests that are held up by a delay fault.
+// Stopping the simulator does not wait for requests that are held up by a delay fault:
+// every request in flight ends at once, with one trace record each.
 func TestStress_ShutdownWithRequestsInFlight(t *testing.T) {
-	baseline := runtime.NumGoroutine()
+	baseline := leakcheck.Take()
 	f := stressFixture()
 	f.Devices[1].Behavior.Faults[0].DelayMs = 60_000
-	s := startSim(t, f, RunOptions{})
+	ready := make(chan *running, 1)
+	s := startSim(t, f, RunOptions{test: &runTest{ready: func(r *running) { ready <- r }}})
+	h := (<-ready).handler
 
 	conns := make([]net.Conn, 6)
 	for i := range conns {
@@ -221,14 +224,18 @@ func TestStress_ShutdownWithRequestsInFlight(t *testing.T) {
 		require.NoError(t, err)
 		conns[i] = conn
 	}
-	time.Sleep(100 * time.Millisecond) // let the requests reach the handler
+	// Every request has reached the handler, where the delay fault holds it.
+	require.Eventually(t, func() bool { return h.inProgress() == int64(len(conns)) }, 5*time.Second, time.Millisecond)
 
 	start := time.Now()
 	s.stop(t)
 	require.Less(t, time.Since(start), 2*time.Second)
 
-	for _, rec := range s.records(t) {
+	recs := s.records(t)
+	require.Len(t, recs, len(conns))
+	for _, rec := range recs {
 		require.False(t, rec.Response.OK)
+		require.Equal(t, FaultDelay, rec.Response.Fault)
 		require.Equal(t, "slow", rec.MatchedRule)
 	}
 	for _, conn := range conns {
@@ -239,7 +246,7 @@ func TestStress_ShutdownWithRequestsInFlight(t *testing.T) {
 
 // Many short-lived connections, also to the unit that resets on every connection.
 func TestStress_ConnectionChurn(t *testing.T) {
-	baseline := runtime.NumGoroutine()
+	baseline := leakcheck.Take()
 	s := startSim(t, stressFixture(), RunOptions{})
 	const goroutines, cycles = 8, 40
 	errs := make(chan error, goroutines)

@@ -173,8 +173,24 @@ func spansOverlap(a, b addressSpan) bool {
 	return a.start <= b.end && b.start <= a.end
 }
 
+// maxIdentityValueLen is the longest identity value, in bytes, that one FC43 response
+// can carry: a response PDU has 253 bytes, 7 of them before the object list, and each
+// object takes an id and a length byte (go-modbus server_device_id.go).
+const maxIdentityValueLen = 253 - 7 - 2
+
 func validateIdentity(deviceLabel string, id *Identity) []string {
 	var problems []string
+	tooLong := func(field, value string) {
+		if n := len(value); n > maxIdentityValueLen {
+			problems = append(problems, fmt.Sprintf("%s identity.%s: value is %d bytes, at most %d fit in an FC43 response", deviceLabel, field, n, maxIdentityValueLen))
+		}
+	}
+	tooLong("vendorName", id.VendorName)
+	tooLong("productCode", id.ProductCode)
+	tooLong("majorMinorRevision", id.MajorMinorRevision)
+	for i, o := range id.Objects {
+		tooLong(fmt.Sprintf("objects[%d]", i), o.Value)
+	}
 	seen := map[uint8]struct{}{}
 	for _, o := range id.Objects {
 		if o.ID <= 0x02 {

@@ -182,6 +182,11 @@ func coerceJSONValue(v any, kind codec.CodecValueKind) (any, error) {
 		if err != nil {
 			return nil, err
 		}
+		// A value beyond the float32 range would become an infinity; one that rounds to
+		// the largest float32 (such as 3.4028235e38) is kept.
+		if math.IsInf(float64(float32(f)), 0) {
+			return nil, fmt.Errorf("value %v out of range for float32", f)
+		}
 		return float32(f), nil
 	case codec.CodecValueFloat64:
 		return asFloat64(v)

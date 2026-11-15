@@ -1,7 +1,7 @@
 # Ignore any go.work in a parent directory.
 export GOWORK := off
 
-.PHONY: help all run test soak fuzz coverage cover compile lint lint-ci fmt fmt-check vuln vet build build-nocheck build-all release-all install clean check generate-codec-examples coverage-pkg-check
+.PHONY: help all run test soak fuzz coverage cover compile lint lint-ci fmt fmt-check vuln vet build build-nocheck build-all release-all install clean check generate-codec-examples generate-check coverage-pkg-check
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -45,11 +45,16 @@ soak: ## Loop the chaos and stress tests under the race detector for SOAKTIME ea
 	@echo "Soaking chaos and stress tests (SOAKTIME=$(SOAKTIME))"
 	@MODBUS_SIMULATOR_SOAK=$(SOAKTIME) go test -count=1 -race -timeout=0 -run 'TestChaos_|TestStress_' ./internal/simulator/
 
-fuzz: ## Run every fuzz target for FUZZTIME (default 30s)
-	@for target in FuzzValidateFixture FuzzExpectation FuzzHandlerRequests; do \
-		echo "Fuzzing $$target (FUZZTIME=$(FUZZTIME))"; \
-		go test -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME) ./internal/simulator/ || exit 1; \
-	done
+fuzz: ## Run every fuzz target (found with go test -list) for FUZZTIME (default 30s)
+	@n=0; for pkg in $$(go list ./...); do \
+		for target in $$(go test -list '^Fuzz' $$pkg | grep '^Fuzz'); do \
+			echo "Fuzzing $$pkg $$target (FUZZTIME=$(FUZZTIME))"; \
+			go test -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME) $$pkg || exit 1; \
+			n=$$((n+1)); \
+		done; \
+	done; \
+	if [ $$n -eq 0 ]; then echo "no fuzz targets found"; exit 1; fi; \
+	echo "$$n fuzz target(s) run"
 
 # tools/ is a generator run by hand, not part of the binary (TESTING.md).
 COVER_PKGS := $(shell go list ./... | grep -v '/tools')
@@ -161,3 +166,7 @@ clean: ## Clean the build artifacts
 generate-codec-examples: ## Regenerate bundled codec example fixtures
 	@echo "Generating codec example fixtures"
 	@go run ./tools/generate-codec-examples
+
+generate-check: generate-codec-examples ## Fail when the bundled codec examples differ from what the generator writes
+	@git diff --exit-code -- examples/ || { echo "examples/ is out of date: run make generate-codec-examples and commit the result"; exit 1; }
+	@test -z "$$(git status --porcelain -- examples/)" || { git status --porcelain -- examples/; echo "examples/ has files that are not committed"; exit 1; }

@@ -105,6 +105,7 @@ type Store struct {
 	mu        sync.Mutex
 	devices   map[uint8]*runtimeDevice
 	broadcast bool
+	gen       uint64 // counts the fixtures Replace installed
 }
 
 // BuildStore constructs a runtime store from a validated fixture.
@@ -244,16 +245,35 @@ func (s *Store) Replace(other *Store) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.devices, s.broadcast = devices, broadcast
+	s.gen++
 }
 
-func (s *Store) deviceMeta(unit uint8) (exceptions []ExceptionRule, faults []FaultRule, ok bool) {
+// generation returns the number of fixtures Replace has installed.
+func (s *Store) generation() uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	rd, found := s.device(unit)
-	if !found {
-		return nil, nil, false
+	return s.gen
+}
+
+// requestRules is what the rule evaluation order needs from the store for one request,
+// taken in one step: whether unit 0 is a broadcast, the device's rules, and the
+// generation of the fixture they belong to.
+type requestRules struct {
+	gen        uint64
+	broadcast  bool
+	found      bool
+	exceptions []ExceptionRule
+	faults     []FaultRule
+}
+
+func (s *Store) requestRules(unit uint8) requestRules {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rr := requestRules{gen: s.gen, broadcast: s.broadcast}
+	if rd, found := s.device(unit); found {
+		rr.found, rr.exceptions, rr.faults = true, rd.exceptions, rd.faults
 	}
-	return rd.exceptions, rd.faults, true
+	return rr
 }
 
 // Identity returns the identity for a unit, if configured.

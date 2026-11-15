@@ -1,5 +1,38 @@
 # modbus-simulator Releases
 
+## v1.6.0
+
+**Date:** 2026-11-15
+**Previous release:** v1.5.6
+
+The trace and `/healthz` report what the simulator does, files and settings that cannot be served as written are refused, and `run` stops within a bound.
+
+### Breaking
+
+- **Identity values longer than 244 bytes are refused.** `validate` and `run` exit with code `3` for a fixture whose `vendorName`, `productCode`, `majorMinorRevision` or an `objects[].value` is longer than 244 bytes in UTF-8, the most one FC43 response can carry. Such a fixture was accepted before, but an FC43 read that reached the value was answered with a *Server Device Failure* exception on the wire, and traced as `ok: true`. Way back: shorten the value to at most 244 bytes.
+- **FC43: an individual read of an object id that is not configured is traced as an exception.** The client received `illegal_data_address` before as now; the trace said `ok: true` and now says `ok: false`, `exceptionCode: "illegal_data_address"`. Way back: an expectation that matched such a read with `response: {"ok": true}` matches it with `response: {"ok": false, "exceptionCode": "illegal_data_address"}`.
+- **A `float32` codec value beyond the float32 range is refused** (exit `3`), instead of being served as an infinity. Values that round to the largest float32, such as `3.4028235e38`, are accepted. Way back: to serve an infinity, use raw register points that hold its bits (+Inf is `0x7F800000`) in the word order the client expects.
+- **An environment variable that does not parse is a usage error** (exit `2`) naming the variable: `MODBUS_SIMULATOR_MAX_CLIENTS` (a decimal that fits the platform's `uint`), `MODBUS_SIMULATOR_TRACE_RAW` and `MODBUS_SIMULATOR_TRACE_DECODED` (`true`, `false`, `1`, `0` and the other forms of Go's `strconv.ParseBool`). Such a value was replaced by the default without a word before: `MODBUS_SIMULATOR_MAX_CLIENTS=1O` meant no client limit. Way back: unset the variable or give it a valid value; a flag on the command line takes precedence over the variable, as before.
+- **An expectation matcher may only name fields of the trace.** A key in `request`, `response` or `stateChange` that the trace record does not have is a validation error (exit `3`) of `assert-trace`. Such a key never matched before, so `notContains` and `count` with `equals: 0` or `atMost` passed whatever the trace held. Way back: correct the key to the field meant; an assertion that relied on never matching can be removed, with the result it had.
+- **`GET /healthz` answers `503`** with `{"ok": false, "error": "trace file not written: …"}` once a trace record could not be written; `run` also prints one warning line to stderr. It answered `200` until `run` ended with exit `4`. Requests are still served. Way back: a script that only needs to know that the simulator is up can accept `503` as well as `200`.
+- **The control API refuses requests with an `Origin` header** (`403`), on every path. Browsers send that header with the requests of a web page; `curl` and test scripts do not. Way back: a client outside a browser that sets `Origin` itself leaves the header out. A web page can no longer drive the control API.
+- **`run` stops within 10 s.** After SIGINT or SIGTERM it waits at most 10 s for the control API and the requests in progress; when they have not finished (for example a trace write that does not return), `run` exits with code `4` and leaves the trace file unclosed, where it used to wait without end. A second signal ends the process at once; it was ignored before. Records already written are in the file: each one is flushed as it is written. Way back: send one signal and wait for `run` to end.
+- **A request held across a reload is answered from the new fixture.** A request that a `delay` rule held while `POST /reload` replaced the fixture was answered with the old fixture's rules and the new fixture's state; its unit, broadcast and exception rules now come from the new fixture, and `matchedRule` names a rule of the new fixture or none (REQUIREMENTS.md, Control API: a reload takes effect between two requests). A `timeout` or `connectionClose` fault that already acted is kept. Way back: none; to keep a delayed request on the old fixture, let it finish before the reload.
+
+### Changed
+
+- The control API closes keep-alive connections that are idle for 30 s (they were kept for as long as the client wanted). HTTP clients open a new connection for the next request.
+- SECURITY.md lists the resource limits: clients, frames, idle and TLS handshake timeouts, per-connection state, fault delays, the trace file, the control API, shutdown and the files read.
+
+### Tests
+
+- The shutdown test with requests in flight waits until every request is in progress, by the handler's count, and checks that each one has its trace record.
+- A goroutine leak check that compares goroutines by id runs after the tests of `internal/simulator` and `cmd` and after the stress, chaos and lifecycle tests (`internal/leakcheck`).
+- `make fuzz` runs every fuzz target that `go test -list` finds, and fails when it finds none.
+- CI regenerates the bundled codec examples and fails when they differ from the committed files (`make generate-check`).
+
+---
+
 ## v1.5.6
 
 **Date:** 2026-11-15

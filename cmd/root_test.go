@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,6 +28,7 @@ func run(t *testing.T, args ...string) (int, string, string) {
 		"MODBUS_SIMULATOR_FORMAT", "MODBUS_SIMULATOR_FIXTURE", "MODBUS_SIMULATOR_EXPECT",
 		"MODBUS_SIMULATOR_TRACE", "MODBUS_SIMULATOR_LISTEN", "MODBUS_SIMULATOR_CONTROL",
 		"MODBUS_SIMULATOR_TLS_CERT", "MODBUS_SIMULATOR_TLS_KEY", "MODBUS_SIMULATOR_TLS_CLIENT_CA",
+		"MODBUS_SIMULATOR_MAX_CLIENTS", "MODBUS_SIMULATOR_TRACE_RAW", "MODBUS_SIMULATOR_TRACE_DECODED",
 	} {
 		if _, set := os.LookupEnv(key); set {
 			t.Setenv(key, "")
@@ -188,4 +192,73 @@ func TestCompletion(t *testing.T) {
 	}
 	code, _, _ := run(t, "completion", "tcsh")
 	require.Equal(t, exitUsage, code)
+}
+
+// An environment variable whose value does not parse is a usage error that names it, as
+// the same value given as a flag is. A flag on the command line takes precedence.
+func TestRun_EnvironmentValueNotValid(t *testing.T) {
+	stopped, cancel := context.WithCancel(context.Background())
+	cancel() // a run that starts ends at once, with exit 0
+	for _, tc := range []struct {
+		key, value string
+		flag       []string
+		want       int
+	}{
+		{key: "MODBUS_SIMULATOR_MAX_CLIENTS", value: "4", want: exitOK},
+		{key: "MODBUS_SIMULATOR_MAX_CLIENTS", value: "1O", want: exitUsage},
+		{key: "MODBUS_SIMULATOR_MAX_CLIENTS", value: "-1", want: exitUsage},
+		{key: "MODBUS_SIMULATOR_MAX_CLIENTS", value: "18446744073709551616", want: exitUsage},
+		{key: "MODBUS_SIMULATOR_MAX_CLIENTS", value: "1O", flag: []string{"--max-clients", "4"}, want: exitOK},
+		{key: "MODBUS_SIMULATOR_TRACE_RAW", value: "true", want: exitOK},
+		{key: "MODBUS_SIMULATOR_TRACE_RAW", value: "yes", want: exitUsage},
+		{key: "MODBUS_SIMULATOR_TRACE_RAW", value: "yes", flag: []string{"--trace-raw=false"}, want: exitOK},
+		{key: "MODBUS_SIMULATOR_TRACE_DECODED", value: "0", want: exitOK},
+		{key: "MODBUS_SIMULATOR_TRACE_DECODED", value: "on", want: exitUsage},
+	} {
+		name := tc.key + "=" + tc.value + " " + strings.Join(tc.flag, " ")
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(tc.key, tc.value)
+			args := append([]string{"run", "--fixture", testFixture}, tc.flag...)
+			code, _, errOut := runCtx(t, stopped, args...)
+			require.Equal(t, tc.want, code, errOut)
+			if tc.want == exitUsage {
+				require.Contains(t, errOut, "environment variable "+tc.key)
+				require.Contains(t, errOut, strconv.Quote(tc.value))
+			}
+		})
+	}
+}
+
+// The unsigned integer of an environment variable must fit in a uint of the platform.
+func TestEnvDefaults_Uint(t *testing.T) {
+	const key = "MODBUS_SIMULATOR_TEST_UINT"
+	for _, tc := range []struct {
+		value string
+		want  uint
+		ok    bool
+	}{
+		{"", 7, true}, // unset: the default
+		{"0", 0, true},
+		{"1", 1, true},
+		{" 12 ", 12, true},
+		{"4294967295", math.MaxUint32, true},
+		{"4294967296", 1 << 32 & math.MaxUint, strconv.IntSize == 64},
+		{strconv.FormatUint(math.MaxUint-1, 10), math.MaxUint - 1, true},
+		{strconv.FormatUint(math.MaxUint, 10), math.MaxUint, true},
+		{"18446744073709551616", 0, false},
+		{"-1", 0, false},
+		{"0x10", 0, false},
+		{"1O", 0, false},
+	} {
+		t.Setenv(key, tc.value)
+		var env envDefaults
+		got := env.uintValue("flag", key, 7)
+		if !tc.ok {
+			require.Len(t, env.bad, 1, tc.value)
+			require.Equal(t, uint(7), got, tc.value)
+			continue
+		}
+		require.Empty(t, env.bad, tc.value)
+		require.Equal(t, tc.want, got, tc.value)
+	}
 }

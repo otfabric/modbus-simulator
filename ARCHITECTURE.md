@@ -28,20 +28,22 @@ main.go
 | `internal/simulator/control.go` | The optional HTTP control API: `/reset`, `/reload`, `/healthz` |
 | `internal/simulator/server.go` | `Run`: wires the above and blocks until the context is cancelled |
 | `schemas` | The fixture and trace JSON Schemas, embedded |
+| `internal/leakcheck` | Test-only goroutine leak check (`TESTING.md`) |
 
 ## Request flow
 
 `Run` validates the fixture, builds the `Store`, opens the trace file if one was asked for, and starts a go-modbus server with a `Handler`. All devices share one listener and are routed by Unit ID.
 
-For each request, `Handler.serve` first evaluates configured exception and fault rules, then takes `commitMu` and, in one step, applies the state operation, assigns `seq` and writes the trace record. The rule evaluation order is specified in `REQUIREMENTS.md`, Rule evaluation order.
+For each request, `Handler.serve` first evaluates configured exception and fault rules, then takes `commitMu` and, in one step, applies the state operation, assigns `seq` and writes the trace record. When a reload replaced the store in between (the store counts its generations), the unit, broadcast and exception checks are made again against the new fixture under `commitMu`; a `timeout` or `connectionClose` fault that already acted is kept, and a `delay` is not waited again. The rule evaluation order is specified in `REQUIREMENTS.md`, Rule evaluation order.
 
 ## Concurrency and ownership
 
 - go-modbus runs the client connections and calls the handler concurrently.
 - `Handler.commitMu` makes a state operation, its `seq` and its trace record one step, so the trace lists requests in the order in which they took effect. `ResetState` and `ReplaceStore` take the same lock.
-- `Store.mu` guards the device state. `JSONLWriter.mu` guards the trace; every record is flushed as it is written, and the first write error is sticky and reported by `Close`.
-- The control API runs in one goroutine started by `Run` and is closed when `Run` returns. `control.mu` allows one control request at a time. It has no authentication: bind it to a loopback address.
-- `cmd` cancels the context on SIGINT or SIGTERM. `Run` then stops the server and closes the trace.
+- `Store.mu` guards the device state. `JSONLWriter.mu` guards the trace; every record is flushed as it is written, and the first write error is sticky and reported by `Close`. The handler reports that first error once while it runs (a warning line, `/healthz`).
+- The control API runs in one goroutine started by `Run`; `Run` shuts it down and waits for that goroutine before it returns. `control.mu` allows one control request at a time. It has no authentication and refuses requests with an `Origin` header: bind it to a loopback address.
+- `cmd` cancels the context on SIGINT or SIGTERM and then restores the default handling, so a second signal ends the process. `Run` shuts down the control API, then the Modbus server, waiting at most 10 s in all for the requests in progress, and then closes the trace. When the time runs out it returns an error and leaves the trace file to the requests still running.
+- `internal/leakcheck` is test-only: the goroutine leak check of the `internal/simulator` and `cmd` tests.
 
 ## Extending it
 

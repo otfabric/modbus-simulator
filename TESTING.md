@@ -1,6 +1,6 @@
 # Testing
 
-No devices or external services are needed: tests start the simulator in-process on a local port. All test code is in `internal/simulator` and `cmd`.
+No devices or external services are needed: tests start the simulator in-process on a local port. The test code is in `internal/simulator` and `cmd`; `internal/leakcheck` is the goroutine leak check they share.
 
 ## Tiers
 
@@ -8,11 +8,12 @@ No devices or external services are needed: tests start the simulator in-process
 |---|---|---|---|
 | Unit, integration, e2e, short chaos and stress, with race | `make test` | All tests, every fixture in `examples/` included | yes |
 | Coverage | `make coverage` writes `coverage.out`; `make cover` opens it | The Makefile target has no threshold | gate in CI |
-| Fuzz | `make fuzz` (`FUZZTIME`, default 30s per target) | `FuzzValidateFixture`, `FuzzExpectation`, `FuzzHandlerRequests` | yes, `fuzz-time: 10s` |
+| Fuzz | `make fuzz` (`FUZZTIME`, default 30s per target) | Every `Fuzz` target that `go test -list '^Fuzz'` finds in a package of the module (today `FuzzValidateFixture`, `FuzzExpectation`, `FuzzHandlerRequests`); fails when it finds none | yes, `fuzz-time: 10s` |
 | Soak | `make soak` (`SOAKTIME`, default 2m) | Loops `TestChaos_*` and `TestStress_*` under the race detector | no |
 | Vulnerabilities | `make vuln` | govulncheck | yes |
+| Generated examples | `make generate-check` | Regenerates the codec fixtures in `examples/` and fails when they differ from the committed files | yes, job `Generated codec examples` |
 
-`make check` runs fmt, lint, lint-ci, vet, test and the per-package coverage floor. CI calls the shared `go-ci` workflow on Go 1.26 and 1.27 (`.github/workflows/ci.yml`).
+`make check` runs fmt, lint, lint-ci, vet, test and the per-package coverage floor. CI calls the shared `go-ci` workflow on Go 1.26 and 1.27 (`.github/workflows/ci.yml`), and runs the per-package coverage floor and `make generate-check` as jobs of their own.
 
 ## Coverage policy
 
@@ -21,6 +22,8 @@ CI enforces `coverage-min: 85` over the module and, through `make coverage-pkg-c
 ## What the suites check
 
 `README.md`, Chaos, stress and fuzz tests, describes these suites. After each run the trace must be schema-valid, numbered `1, 2, 3, …` in file order, and replay as a sequential history. `TestExamples_AllFixturesHaveIntegrationCase` requires an integration case for every example fixture, and `TestExamples_AllCodecsHaveExample` an example for every codec.
+
+Goroutine leaks: `TestMain` of `internal/simulator` and of `cmd` compares the goroutines running after all tests with those before them and fails the package, with the stack of each one, when one is left (`internal/leakcheck`; not while fuzzing). The stress, chaos and lifecycle tests also check after each test. Lifecycle and shutdown tests wait for events (a hook when `Run` serves, the handler's count of requests in progress), not for time.
 
 ## Replaying a failure
 

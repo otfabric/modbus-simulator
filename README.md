@@ -112,7 +112,9 @@ modbus-simulator validate device.json --format json
 
 ### `run`
 
-Start the stateful Modbus TCP simulator from a fixture. Runs until interrupted (SIGINT/SIGTERM).
+Start the stateful Modbus TCP simulator from a fixture. Runs until interrupted (SIGINT/SIGTERM). It then waits at most 10 s for the requests in progress and exits with code `4` when they have not finished; a second Ctrl+C ends it at once. A trace record that cannot be written is reported with one warning line on stderr, and `run` exits with code `4` at the end.
+
+An environment variable that does not hold a valid value for its flag (for example `MODBUS_SIMULATOR_MAX_CLIENTS=1O` or `MODBUS_SIMULATOR_TRACE_RAW=yes`) is a usage error (exit `2`) naming the variable, unless the flag is also given on the command line.
 
 #### Flags
 
@@ -306,6 +308,7 @@ Discover IDs with `modbus-simulator codecs list`. Validation runs JSON Schema pl
 
 - **FC22 (mask write)** sets the register to `(current AND andMask) OR (orMask AND NOT andMask)`.
 - **FC23 (read/write multiple)** makes the write first, then the read, as one step. If either is not allowed, nothing is written.
+- **FC43 (device identification)** answers an individual read of an object id that the fixture does not configure with `illegal_data_address`, and traces it so. Identity values are at most 244 bytes (UTF-8), the most one response can carry; `validate` refuses longer ones.
 
 All devices in a fixture share one listener and are routed by unit ID (`1–247`). A request for a unit ID that is not in the fixture is answered with an `illegal_function` exception.
 
@@ -324,8 +327,8 @@ With `run --control <host:port>` a running simulator also takes commands over HT
 |---------|--------|
 | `POST /reset` | Restore every unit to the fixture values, for all clients |
 | `POST /reset?unit=N` | Restore one unit (`404` when it is not in the fixture) |
-| `POST /reload` | Read the fixture file again and serve it from then on. A fixture that is not valid is refused with `422` and the simulator carries on unchanged |
-| `GET /healthz` | `200` while the simulator runs |
+| `POST /reload` | Read the fixture file again and serve it from then on, also to a request that a delay rule of the old fixture is holding. A fixture that is not valid is refused with `422` and the simulator carries on unchanged |
+| `GET /healthz` | `200` while the simulator runs; `503` with the error once a trace record could not be written |
 
 ```bash
 modbus-simulator run --fixture device.json --control 127.0.0.1:5021 &
@@ -333,7 +336,7 @@ curl -X POST http://127.0.0.1:5021/reset
 curl -X POST http://127.0.0.1:5021/reload
 ```
 
-Replies are JSON (`{"ok":true}`, or `{"ok":false,"error":"…"}`). The control API has **no authentication**: bind it to a loopback address. Resets and reloads are not written to the trace; `seq` simply continues.
+Replies are JSON (`{"ok":true}`, or `{"ok":false,"error":"…"}`). The control API has **no authentication**: bind it to a loopback address. It refuses any request with an `Origin` header (`403`), which browsers add to the requests of a web page; `curl` and test scripts do not send one. Resets and reloads are not written to the trace; `seq` simply continues.
 
 ## Fault injection
 
@@ -425,10 +428,11 @@ make help                      # list targets
 make test                      # unit + race tests (includes example fixtures)
 make check                     # fmt, lint, vet, test, coverage
 make soak                      # loop the chaos and stress tests (SOAKTIME=2m)
-make fuzz                      # run the fuzz targets (FUZZTIME=30s each)
+make fuzz                      # run every fuzz target go test -list finds (FUZZTIME=30s each)
 make build                     # build bin/modbus-simulator
 make build-all                 # cross-compile release binaries
 make generate-codec-examples   # regenerate bundled codec fixtures
+make generate-check            # fail when examples/ differs from what the generator writes (CI)
 ```
 
 Shell completion setup is documented under [`completion`](#completion).

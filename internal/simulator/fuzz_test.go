@@ -50,6 +50,7 @@ func FuzzExpectation(f *testing.F) {
 	  {"kind":"ordered","sequence":[{"request":{"fc":6}},{"request":{"fc":3}}]},
 	  {"kind":"exact","sequence":[{"response":{"ok":false}}]}]}`))
 	f.Add([]byte(`{"schemaVersion":"modbus-simulator.expect.v1","assertions":[{"kind":"count"}]}`))
+	f.Add([]byte(`{"schemaVersion":"modbus-simulator.expect.v1","assertions":[{"kind":"notContains","match":{"request":{"fc":6,"register":1}}}]}`))
 
 	var records []map[string]any
 	for _, line := range []string{

@@ -22,6 +22,7 @@ func newRunCmd() *cobra.Command {
 		tlsCert      string
 		tlsKey       string
 		tlsClientCA  string
+		env          envDefaults
 	)
 	c := &cobra.Command{
 		Use:   "run",
@@ -42,6 +43,9 @@ func newRunCmd() *cobra.Command {
   # Environment variables instead of flags
   MODBUS_SIMULATOR_FIXTURE=device.json MODBUS_SIMULATOR_LISTEN=:5020 modbus-simulator run`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := env.check(cmd); err != nil {
+				return err
+			}
 			if strings.TrimSpace(fixture) == "" {
 				return invalidInput(fmt.Errorf("fixture path is required (--fixture / MODBUS_SIMULATOR_FIXTURE)"))
 			}
@@ -77,12 +81,12 @@ func newRunCmd() *cobra.Command {
 	c.Flags().StringVar(&fixture, "fixture", envOr("MODBUS_SIMULATOR_FIXTURE", ""), "Path to the fixture JSON file (required)")
 	c.Flags().StringVar(&listen, "listen", envOr("MODBUS_SIMULATOR_LISTEN", ":5020"), "TCP listen address host:port (e.g. :5020)")
 	c.Flags().StringVar(&trace, "trace", envOr("MODBUS_SIMULATOR_TRACE", ""), "Trace JSONL output path (omitted = no trace)")
-	c.Flags().BoolVar(&traceDecoded, "trace-decoded", envBool("MODBUS_SIMULATOR_TRACE_DECODED", false), "Include typed codec decode overlay in trace records")
-	c.Flags().BoolVar(&traceRaw, "trace-raw", envBool("MODBUS_SIMULATOR_TRACE_RAW", false), "Include the request and response PDU bytes (hex) in trace records")
+	c.Flags().BoolVar(&traceDecoded, "trace-decoded", env.boolValue("trace-decoded", "MODBUS_SIMULATOR_TRACE_DECODED", false), "Include typed codec decode overlay in trace records")
+	c.Flags().BoolVar(&traceRaw, "trace-raw", env.boolValue("trace-raw", "MODBUS_SIMULATOR_TRACE_RAW", false), "Include the request and response PDU bytes (hex) in trace records")
 	c.Flags().StringVar(&control, "control", envOr("MODBUS_SIMULATOR_CONTROL", ""), "HTTP control API address host:port for reset and reload (omitted = disabled; no authentication, use a loopback address)")
 	c.Flags().StringVar(&tlsCert, "tls-cert", envOr("MODBUS_SIMULATOR_TLS_CERT", ""), "Server certificate (PEM); enables Modbus/TCP Security together with --tls-key and --tls-client-ca")
 	c.Flags().StringVar(&tlsKey, "tls-key", envOr("MODBUS_SIMULATOR_TLS_KEY", ""), "Server private key (PEM)")
 	c.Flags().StringVar(&tlsClientCA, "tls-client-ca", envOr("MODBUS_SIMULATOR_TLS_CLIENT_CA", ""), "CA certificates (PEM) that client certificates must chain to")
-	c.Flags().UintVar(&maxClients, "max-clients", envUint("MODBUS_SIMULATOR_MAX_CLIENTS", 0), "Max concurrent clients (0 = unlimited)")
+	c.Flags().UintVar(&maxClients, "max-clients", env.uintValue("max-clients", "MODBUS_SIMULATOR_MAX_CLIENTS", 0), "Max concurrent clients (0 = unlimited)")
 	return c
 }

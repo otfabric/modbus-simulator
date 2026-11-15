@@ -2,6 +2,7 @@ package simulator
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/otfabric/go-modbus/codec"
@@ -79,4 +80,39 @@ func TestCoerceJSONValue_Uint64Rejects(t *testing.T) {
 		_, err := coerceJSONValue(json.Number(in), codec.CodecValueUint64)
 		require.Error(t, err, in)
 	}
+}
+
+// A float32 value must lie in the float32 range. A value that rounds to the largest
+// float32 is kept; one that would become an infinity is refused.
+func TestCoerceJSONValue_Float32Range(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want float32
+		ok   bool
+	}{
+		{"0", 0, true},
+		{"1", 1, true},
+		{"-1", -1, true},
+		{"1.401298464324817e-45", math.SmallestNonzeroFloat32, true},
+		{"3.4028234e38", math.MaxFloat32, true},
+		{"3.4028235e38", math.MaxFloat32, true},
+		{"-3.4028235e38", -math.MaxFloat32, true},
+		{"3.5e38", 0, false},
+		{"-3.5e38", 0, false},
+		{"1e39", 0, false},
+		{"1.7976931348623157e308", 0, false},
+	} {
+		v, err := coerceJSONValue(json.Number(tc.in), codec.CodecValueFloat32)
+		if !tc.ok {
+			require.ErrorContains(t, err, "out of range for float32", tc.in)
+			continue
+		}
+		require.NoError(t, err, tc.in)
+		require.Equal(t, tc.want, v, tc.in)
+	}
+
+	fx := `{"schemaVersion":"modbus-simulator.fixture.v1","devices":[{"unitId":1,"state":{"holdingRegisters":[
+	  {"address":0,"codec":"float32/layout:4321","value":1e39}]}}]}`
+	_, err := ValidateFixtureBytes([]byte(fx))
+	require.ErrorContains(t, err, `codec "float32/layout:4321": value 1e+39 out of range for float32`)
 }

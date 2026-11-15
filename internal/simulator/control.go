@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 )
 
 // control is the HTTP control API of a running simulator: it resets the state to the
@@ -26,14 +27,51 @@ type controlReply struct {
 	Fixture *FixtureSummary `json:"fixture,omitempty"`
 }
 
+// The control API's HTTP timeouts: how long a client may take to send the request header,
+// and how long an idle keep-alive connection is kept.
+const (
+	controlReadHeaderTimeout = 5 * time.Second
+	controlIdleTimeout       = 30 * time.Second
+)
+
+func newControlServer(c *control) *http.Server {
+	return &http.Server{
+		Handler:           c.routes(),
+		ReadHeaderTimeout: controlReadHeaderTimeout,
+		IdleTimeout:       controlIdleTimeout,
+	}
+}
+
 func (c *control) routes() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeReply(w, http.StatusOK, controlReply{OK: true})
-	})
+	mux.HandleFunc("GET /healthz", c.healthz)
 	mux.HandleFunc("POST /reset", c.reset)
 	mux.HandleFunc("POST /reload", c.reload)
-	return mux
+	return notFromWebPages(mux)
+}
+
+// notFromWebPages refuses every request that carries an Origin header. Web browsers send
+// one with the requests a page makes to another site, and with every POST; HTTP clients
+// outside a browser, such as curl, do not. The control API is meant for test scripts, and
+// a page open in a browser on the same machine must not reset or reload the simulator.
+func notFromWebPages(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := r.Header["Origin"]; ok {
+			failReply(w, http.StatusForbidden, "requests from web pages (with an Origin header) are not accepted")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// healthz reports whether the simulator runs and its trace file, when it writes one, is
+// still written.
+func (c *control) healthz(w http.ResponseWriter, _ *http.Request) {
+	if err := c.handler.TraceError(); err != nil {
+		failReply(w, http.StatusServiceUnavailable, "trace file not written: %v", err)
+		return
+	}
+	writeReply(w, http.StatusOK, controlReply{OK: true})
 }
 
 func writeReply(w http.ResponseWriter, status int, reply controlReply) {

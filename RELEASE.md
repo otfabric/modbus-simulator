@@ -11,6 +11,10 @@ No feature is added or changed.
 
 - Built on go-modbus v1.17.0 (was v1.16.2) (go-modbus RELEASE.md, v1.17.0).
 
+### Tests
+
+- `TestStress_ClientLimit` fills the client limit only once the server has freed the slot of the test harness's readiness client, which it frees on that connection's own goroutine. On a slow runner the slot could still count, and one of the two clients within the limit was turned away (3 of 200 runs under load here; 0 of 200 with the change).
+
 ---
 
 ## v1.6.1

@@ -172,12 +172,24 @@ func TestStress_NoClientLimitByDefault(t *testing.T) {
 func TestStress_ClientLimit(t *testing.T) {
 	s := startSim(t, stressFixture(), RunOptions{MaxClients: 2})
 	ctx := context.Background()
-	first, second := dialClient(t, s.port), dialClient(t, s.port)
+	// startSim's readiness client has closed its connection, but the server frees its
+	// slot on the connection's own goroutine, so it can still count against the limit
+	// for a moment. Fill the limit once both clients are served.
+	var first, second *modbus.Client
+	require.Eventually(t, func() bool {
+		a, b := servedClient(ctx, s.addr()), servedClient(ctx, s.addr())
+		if a != nil && b != nil {
+			first, second = a, b
+			return true
+		}
+		for _, c := range []*modbus.Client{a, b} {
+			if c != nil {
+				_ = c.Close()
+			}
+		}
+		return false
+	}, 5*time.Second, 20*time.Millisecond, "two clients within the limit were not served")
 	defer func() { _ = second.Close() }()
-	for _, c := range []*modbus.Client{first, second} {
-		_, err := c.ReadHoldingRegisters(ctx, 1, 0, 1)
-		require.NoError(t, err)
-	}
 
 	extra, err := rawDial(s.addr())
 	if err == nil {
@@ -337,4 +349,22 @@ func TestRun_TraceFileNotWritable(t *testing.T) {
 	}, nil)
 	require.ErrorContains(t, err, "create trace file")
 	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
+// servedClient opens a client to addr and returns it once a read is served, or nil
+// (closed) when the open or the read fails.
+func servedClient(ctx context.Context, addr string) *modbus.Client {
+	c, err := modbus.New(modbus.Config{URL: "tcp://" + addr, Timeout: 300 * time.Millisecond})
+	if err != nil {
+		return nil
+	}
+	if c.Open() != nil {
+		_ = c.Close()
+		return nil
+	}
+	if _, err := c.ReadHoldingRegisters(ctx, 1, 0, 1); err != nil {
+		_ = c.Close()
+		return nil
+	}
+	return c
 }

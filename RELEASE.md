@@ -1,5 +1,18 @@
 # modbus-simulator Releases
 
+## v1.6.3
+
+**Date:** 2026-11-17
+**Previous release:** v1.6.2
+
+No feature is added.
+
+### Changed
+
+- **The control API's request header limit is 16 KiB** (Go's `MaxHeaderBytes`, to which `net/http` adds 4 KiB); a larger header is answered with `431`. The limit was Go's default of 1 MiB. Test scripts send a few hundred bytes. Who notices: a client that sends more than 16 KiB of headers to the control API, for example a browser with many `localhost` cookies opening `/healthz`. Way back: none in the simulator; send a smaller header (a client that adds large cookies or tokens can leave them out, the API reads neither). Approved by the maintainer on 2026-11-16.
+
+---
+
 ## v1.6.2
 
 **Date:** 2026-11-16

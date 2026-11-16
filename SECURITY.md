@@ -61,7 +61,7 @@ What one client, or one run, can hold:
 | State per connection | each connection to a `resetOnConnection` device works on its own copy of that device's state until it disconnects, so memory grows with connections × fixture size; `--max-clients` bounds it | fixture (`stateMode`) |
 | Fault delays | `delayMs` has no upper bound: a request under a `delay` or `timeout` rule is held that long, and the idle timeout does not end it | fixture |
 | Trace file | grows by one line per request, without a size limit or rotation | `--trace` |
-| Control API | 5 s to send the request header, idle keep-alive connections closed after 30 s, the header size limit of Go's `net/http` (1 MiB); one control request is served at a time | simulator |
+| Control API | 5 s to send the request header, a header limit of 16 KiB (`MaxHeaderBytes`, to which `net/http` adds 4 KiB; `431` above), idle keep-alive connections closed after 30 s; one control request is served at a time | simulator |
 | Shutdown | on SIGINT or SIGTERM, at most 10 s for the control API and the requests in progress; when they have not finished by then, `run` exits with code `4`. A second signal ends the process at once | simulator |
 | Files read | fixtures and expectation files are read whole; `assert-trace` reads the whole trace, at most 8 MiB per line | simulator |
 

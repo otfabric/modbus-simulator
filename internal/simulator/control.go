@@ -28,10 +28,12 @@ type controlReply struct {
 }
 
 // The control API's HTTP timeouts: how long a client may take to send the request header,
-// and how long an idle keep-alive connection is kept.
+// and how long an idle keep-alive connection is kept. controlMaxHeaderBytes is the largest
+// request header it reads.
 const (
 	controlReadHeaderTimeout = 5 * time.Second
 	controlIdleTimeout       = 30 * time.Second
+	controlMaxHeaderBytes    = 16 << 10
 )
 
 func newControlServer(c *control) *http.Server {
@@ -39,6 +41,7 @@ func newControlServer(c *control) *http.Server {
 		Handler:           c.routes(),
 		ReadHeaderTimeout: controlReadHeaderTimeout,
 		IdleTimeout:       controlIdleTimeout,
+		MaxHeaderBytes:    controlMaxHeaderBytes,
 	}
 }
 

@@ -765,7 +765,8 @@ authentication and is meant for a loopback address.
   path: browsers send that header with the requests a web page makes, and the API is for
   test scripts.
 - HTTP timeouts: 5 s to send the request header; idle keep-alive connections are closed
-  after 30 s.
+  after 30 s. The request header limit is 16 KiB (Go's `MaxHeaderBytes`, to which
+  `net/http` adds 4 KiB); a larger header is answered with `431`.
 - A reset or reload takes effect between two requests, never in the middle of one. A
   request that is answered after a reload is answered from the new fixture: its unit,
   broadcast and exception rules are those of the new fixture, also when it was matched

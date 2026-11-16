@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -390,6 +391,34 @@ func TestRun_ControlAddressInUse(t *testing.T) {
 		Control:     ln.Addr().String(),
 	}, nil)
 	require.ErrorContains(t, err, "start control API")
+}
+
+// The control API's header limit is 16 KiB (net/http adds 4 KiB to it); a larger header
+// is answered with 431.
+func TestControlAPI_HeaderLimit(t *testing.T) {
+	require.Equal(t, 16<<10, newControlServer(&control{}).MaxHeaderBytes)
+
+	control := fmt.Sprintf("127.0.0.1:%d", freePort(t))
+	startSim(t, stressFixture(), RunOptions{Control: control})
+	// A client of its own without keep-alive: no connection of this test is left open
+	// when the simulator shuts down at the end of the test.
+	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
+	for _, tc := range []struct {
+		size int
+		want int
+	}{
+		{1 << 10, http.StatusOK},
+		{8 << 10, http.StatusOK},
+		{32 << 10, http.StatusRequestHeaderFieldsTooLarge},
+	} {
+		req, err := http.NewRequest(http.MethodGet, "http://"+control+"/healthz", nil)
+		require.NoError(t, err)
+		req.Header.Set("X-Padding", strings.Repeat("x", tc.size))
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		require.Equal(t, tc.want, resp.StatusCode, "header of %d bytes", tc.size)
+	}
 }
 
 // tlsMaterial writes a CA, a server certificate for 127.0.0.1 and a client certificate

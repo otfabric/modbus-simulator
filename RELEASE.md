@@ -1,5 +1,22 @@
 # modbus-simulator Releases
 
+## v1.6.4
+
+**Date:** 2026-11-23
+**Previous release:** v1.6.3
+
+No feature is added or changed.
+
+### Changed
+
+- Built on go-modbus v1.22.0 (was v1.17.0) (go-modbus RELEASE.md, v1.18.0..v1.22.0). For the simulator this means: a request whose length does not match its function code (for example an FC03 request with bytes after the quantity, or an FC16 request with more data than its byte count) is answered with exception 3 and the connection then closed, where it was closed without an answer; a request whose function code has the exception bit set (`0x80`..`0xFF`) is not answered and the connection kept, where it was answered with exception 1. Neither request reaches the device, so neither is traced, as before. FC43 is not affected: the simulator advertises conformity level 0x83 and `validate` already refuses duplicate object ids and values above 244 bytes. TLS client roles are not read, and the new connection limits, authorization and metrics are opt-in and not used.
+
+### Tests
+
+- The chaos test's random PDU action expects a request with the exception bit set in its function code to go unanswered, with the connection kept: a read sent behind it on the same connection must get the first response. It expected an answer or a closed connection, and failed on the new library behaviour.
+
+---
+
 ## v1.6.3
 
 **Date:** 2026-11-17

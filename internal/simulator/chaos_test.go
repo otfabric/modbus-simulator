@@ -163,8 +163,32 @@ func (m *monkey) randomPDU() error {
 	if m.rng.Intn(4) == 0 {
 		unit = 9
 	}
+	if pdu[0]&0x80 != 0 {
+		return m.unanswered(unit, pdu)
+	}
 	_, err := m.exchange(unit, pdu)
 	return err
+}
+
+// unanswered sends a request whose function code has the exception bit set, which the
+// server does not answer and after which it keeps the connection (go-modbus v1.20.0,
+// RELEASE.md "Changed"). A read sent behind it on the same connection must get the
+// first response: an answer to the first request shows up as the wrong transaction.
+func (m *monkey) unanswered(unit byte, pdu []byte) error {
+	conn, err := rawDial(m.addr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
+	first, next := m.nextTxn(), m.nextTxn()
+	frames := append(mbapFrame(first, unit, pdu), mbapFrame(next, chaosUnit, readPDU(3, 0, 1))...)
+	if _, err := conn.Write(frames); err != nil {
+		return fmt.Errorf("connection closed, want it kept (request % x): %w", pdu, err)
+	}
+	if _, err := expectResponse(conn, next, chaosUnit, 3); err != nil {
+		return fmt.Errorf("read after an unanswered request: %w (request % x)", err, pdu)
+	}
+	return nil
 }
 
 func (m *monkey) illegalQuantity() error {
